@@ -1,18 +1,14 @@
 import argparse
-import inspect
-import json
-import os
-import socket
-from copy import copy
-from functools import wraps
-
-import git
-import numpy as np
-from joblib import Parallel, delayed
 import datetime
+import inspect
+import os
+from copy import copy
+from distutils.util import strtobool
 from importlib import import_module
 from itertools import product
-from distutils.util import strtobool
+
+import numpy as np
+from joblib import Parallel, delayed
 
 
 class Launcher(object):
@@ -245,7 +241,7 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
                 params = str(exp).replace('{', '(').replace('}', '').replace(': ', '=').replace('\'', '')
                 print('experiment' + params + default_params + 'seed=' + str(i) + ', results_dir=' + results_dir + ')')
         else:
-            params_dict = get_default_params(experiment)
+            params_dict = get_experiment_default_params(experiment)
 
             Parallel(n_jobs=self._joblib_n_jobs)(delayed(experiment)(**params)
                                                  for params in self._generate_exp_params(params_dict))
@@ -303,7 +299,7 @@ def compute_job_array_joblib(n_exps, joblib_n_jobs):
             return n_exps // joblib_n_jobs
 
 
-def get_default_params(func):
+def get_experiment_default_params(func):
     signature = inspect.signature(func)
     defaults = {}
     for k, v in signature.parameters.items():
@@ -312,7 +308,7 @@ def get_default_params(func):
     return defaults
 
 
-def translate_exp_params_to_argparse(parser, func):
+def translate_experiment_params_to_argparse(parser, func):
     annotation_to_argparse = {
         'str': str,
         'int': int,
@@ -347,12 +343,10 @@ def add_launcher_base_args(parser):
 def parse_args(func):
     parser = argparse.ArgumentParser()
 
-    # Place your experiment arguments here
-    parser = translate_exp_params_to_argparse(parser, func)
+    parser = translate_experiment_params_to_argparse(parser, func)
 
-    # Leave unchanged
     parser = add_launcher_base_args(parser)
-    parser.set_defaults(**get_default_params(func))
+    parser.set_defaults(**get_experiment_default_params(func))
     args = parser.parse_args()
     return vars(args)
 
@@ -377,38 +371,3 @@ def run_experiment(func, args=None):
 
     Parallel(n_jobs=joblib_n_jobs)(delayed(func)(**params)
                                    for params in generate_joblib_seeds(args))
-
-
-def save_args(results_dir, args, git_repo_path=None, seed=None):
-    repo = git.Repo(git_repo_path, search_parent_directories=True)
-    args['git_hash'] = repo.head.object.hexsha
-    args['git_url'] = repo.remotes.origin.url
-
-    filename = 'args.json' if seed is None else f'args-{seed}.json'
-    # Save args
-    with open(os.path.join(results_dir, filename), 'w') as f:
-        json.dump(args, f, indent=2)
-
-    del args['git_hash']
-    del args['git_url']
-
-
-def bool_local_cluster():
-    hostname = socket.gethostname()
-    return False if hostname == 'mn01' or 'logc' in hostname else True
-
-
-def single_experiment(exp_func):
-    @wraps(exp_func)
-    def wrapper(*args, **kwargs):
-        # Make results directory
-        results_dir = os.path.join(kwargs['results_dir'], str(kwargs['seed']))
-        os.makedirs(results_dir, exist_ok=True)
-        kwargs['results_dir'] = results_dir
-        # Save arguments
-        save_args(results_dir, kwargs, git_repo_path='./')
-
-        # Run the experiment
-        exp_func(*args, **kwargs)
-
-    return wrapper

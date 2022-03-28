@@ -2,7 +2,8 @@ import argparse
 import os
 import time
 
-from experiment_launcher import get_default_params, run_experiment, add_launcher_base_args, save_args
+from experiment_launcher.launcher import add_launcher_base_args, get_experiment_default_params, run_experiment
+from experiment_launcher.utils import save_args
 
 
 def experiment(a=1,
@@ -54,7 +55,7 @@ def parse_args():
 
     # Leave unchanged
     parser = add_launcher_base_args(parser)
-    parser.set_defaults(**get_default_params(experiment))
+    parser.set_defaults(**get_experiment_default_params(experiment))
     args = parser.parse_args()
     return vars(args)
 

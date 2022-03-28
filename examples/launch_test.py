@@ -1,5 +1,7 @@
 from itertools import product
-from experiment_launcher import Launcher, bool_local_cluster
+
+from experiment_launcher import Launcher
+from experiment_launcher.utils import bool_local_cluster
 
 LOCAL = bool_local_cluster()
 TEST = False
@@ -18,6 +20,7 @@ MEMORY_SINGLE_JOB = 1000
 
 launcher = Launcher(exp_name='test_launcher',
                     python_file='test',
+                    # python_file='test_old',
                     # project_name='project01234',
                     n_exps=N_SEEDS,
                     joblib_n_jobs=JOBLIB_PARALLEL_JOBS,
@@ -33,15 +36,25 @@ launcher = Launcher(exp_name='test_launcher',
                     use_timestamp=True
                     )
 
-a_list = [1, 2, 3]
-b_c_list = [11, 12]
-boolean_list = [True, False]
+envs = {
+    'env_00': {'env_param': 'aa'},
+    'env_01': {'env_param': 'bb'}
+}
+a_l = [1, 2, 3]
+boolean_param_l = [True, False]
+some_default_param = 'b'
 
-launcher.add_default_params(default='b')
+for env in envs:
+    launcher.add_default_params(
+        env_param=envs[env]['env_param'],
+        some_default_param=some_default_param
+    )
 
-for a, b_c, boolean in product(a_list, b_c_list, boolean_list):
-    launcher.add_experiment(a=a,
-                            b_c=b_c,
-                            boolean=boolean)
+    for a, boolean_param in product(a_l, boolean_param_l):
+        launcher.add_experiment(
+            env=env,
+            a=a,
+            boolean_param=boolean_param
+        )
 
 launcher.run(LOCAL, TEST)
