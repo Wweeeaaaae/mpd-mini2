@@ -24,7 +24,6 @@ MEMORY_SINGLE_JOB = 1000
 
 launcher = Launcher(exp_name='test_launcher',
                     python_file='test',
-                    # python_file='test_old',
                     # project_name='project01234',
                     n_exps=N_SEEDS,
                     joblib_n_jobs=JOBLIB_PARALLEL_JOBS,
