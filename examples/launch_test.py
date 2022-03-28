@@ -54,6 +54,7 @@ for env in envs:
             env_param=envs[env]['env_param'],
             some_default_param=some_default_param,
 
+            # A subdirectory will be created for parameters with a trailing double underscore.
             env__=env,
             a__=a,
             boolean_param__=boolean_param
