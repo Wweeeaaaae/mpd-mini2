@@ -14,8 +14,12 @@ CONDA_ENV = 'py38'  # None
 
 N_SEEDS = 12
 
-JOBLIB_PARALLEL_JOBS = 5  # os.cpu_count() to use all cores
-N_CORES_JOB = 2
+if LOCAL:
+    JOBLIB_PARALLEL_JOBS = 5  # os.cpu_count()
+else:
+    JOBLIB_PARALLEL_JOBS = 1
+
+N_CORES_JOB = 1
 MEMORY_SINGLE_JOB = 1000
 
 launcher = Launcher(exp_name='test_launcher',
