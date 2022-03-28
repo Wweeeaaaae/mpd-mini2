@@ -44,7 +44,7 @@ pip3 install  -e .
       For better performance, one should specify `n_cores >= joblib_n_jobs * 1`.
   - Create a single experiment configuration
     - Use `launcher.add_experiment` to create an experiment for a particular configuration (e.g., different learning rates).
-    - Parameters that are followed by _two underscores_ `__` will be used to create experiment directories. **Be careful** when specifying the parameters, as experiments with the same parameters will lead to directories beeing overwritten. 
+    - Parameters that are followed by _two trailing underscores_ `__` will be used to create experiment directories. **Be careful** when specifying the parameters, as experiments with the same parameters will lead to directories beeing overwritten. 
 
 - To run the experiment call
   ```
