@@ -18,11 +18,11 @@ pip3 install  -e .
 
 ## How to Use
 
-- Create in your own project two files [test.py](examples/test_old.py)
+- Create in your own project two files [test.py](examples/test.py)
   and [launch_test.py](examples/launch_test.py)
 
-- Create an experiment file as in [test.py](examples/test_old.py)
-  - This file consists of two base functions: `experiment`, `parse_args`; and the
+- Create an experiment file as in [test.py](examples/test.py)
+  - This file consists of the function: `experiment`; and the
     `if __name__ == '__main__'` block
   - The function `experiment` is the core of your experiment
     - It takes as arguments your experiment settings (e.g., the number of layers in a neural 
@@ -30,27 +30,21 @@ pip3 install  -e .
     - The arguments need to be assigned a default value in the function definition
     - The arguments `seed` and `results_dir` **must** always be included
     - By default, `results_dir` is the `/path_to_your_sub_experiment`
-  - The function `parse_args` includes a CLI `ArgumentParser`
-    - In this function you should define the command line arguments
-    - These arguments **must** be the same as the ones define in the function `experiment`
-    - You don't need to define the arguments `seed` and `results_dir` - they are defined in
-      `add_launcher_base_args`
   - In `if __name__ == '__main__'` simply include:
     ```
     if __name__ == '__main__':
-        args = parse_args()
-        run_experiment(experiment, args)
+        run_experiment(experiment)
     ```
 
 - Create a launcher file as in [launch_test.py](examples/launch_test.py)
   - Specify the running configurations by calling a `Launcher` constructor:
-    - `n_exps` is the number of random seeds for each single experiment configuration 
+    - `n_exps` is the number of random seeds for each single experiment configuration .
     - If `joblib_n_jobs > 0`, then each node will run `joblib_n_jobs` experiments possibly in parallel.
       E.g., if `joblib_n_jobs` is `3`, then `3` jobs will run in parallel, even if `n_cores` is `1`.
-      For better performance, one should specify `n_cores >= joblib_n_jobs * 1`
+      For better performance, one should specify `n_cores >= joblib_n_jobs * 1`.
   - Create a single experiment configuration
-    - Use `launcher.add_default_params` to add parameters shared across configurations (e.g., the dataset)
-    - Use `launcher.add_experiment` to create a particular configuration (e.g., different learning rates)
+    - Use `launcher.add_experiment` to create an experiment for a particular configuration (e.g., different learning rates).
+    - Parameters that are followed by _two underscores_ `__` will be used to create experiment directories. **Be careful** when specifying the parameters, as experiments with the same parameters will lead to directories beeing overwritten. 
 
 - To run the experiment call
   ```
@@ -61,6 +55,6 @@ pip3 install  -e .
   - `./logs` if running locally
   - `/work/scratch/USERNAME` (the default for the `Lichtenberg-Hochleistungsrechner of the TU Darmstadt`) 
 
-## Some notes
-- The seeds are created sequentially from `0` to `n_exps`
+## Notes
+- For reproducibility, the seeds are created sequentially from `0` to `n_exps-1`.
 

@@ -45,16 +45,14 @@ boolean_param_l = [True, False]
 some_default_param = 'b'
 
 for env in envs:
-    launcher.add_default_params(
-        env_param=envs[env]['env_param'],
-        some_default_param=some_default_param
-    )
-
     for a, boolean_param in product(a_l, boolean_param_l):
         launcher.add_experiment(
-            env=env,
-            a=a,
-            boolean_param=boolean_param
+            env_param=envs[env]['env_param'],
+            some_default_param=some_default_param,
+
+            env__=env,
+            a__=a,
+            boolean_param__=boolean_param
         )
 
 launcher.run(LOCAL, TEST)

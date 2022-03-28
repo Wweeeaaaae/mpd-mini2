@@ -61,7 +61,6 @@ class Launcher(object):
         self._begin = begin
 
         self._experiment_list = list()
-        self._default_params = dict()
 
         if use_timestamp:
             self._exp_name += datetime.datetime.now().strftime('_%Y-%m-%d_%H-%M-%S')
@@ -82,9 +81,6 @@ class Launcher(object):
 
     def add_experiment(self, **kwargs):
         self._experiment_list.append(kwargs)
-
-    def add_default_params(self, **kwargs):
-        self._default_params.update(kwargs)
 
     def run(self, local, test=False):
         if local:
@@ -207,9 +203,6 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
 
         for exp in self._experiment_list:
             command_line_arguments = self._convert_to_command_line(exp)
-            if self._default_params:
-                command_line_arguments += ' '
-                command_line_arguments += self._convert_to_command_line(self._default_params)
             results_dir = self._generate_results_dir(self._exp_dir_slurm, exp)
 
             command = "sbatch " + full_path + ' ' + results_dir
@@ -230,16 +223,10 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
         experiment = module.experiment
 
         if test:
-            if self._default_params:
-                default_params = str(self._default_params).replace('{', ', ').replace('}', ', ') \
-                    .replace(': ', '=').replace('\'', '')
-            else:
-                default_params = ''
-
             for exp, i in product(self._experiment_list, range(self._n_exps)):
                 results_dir = self._generate_results_dir(self._exp_dir_local, exp)
                 params = str(exp).replace('{', '(').replace('}', '').replace(': ', '=').replace('\'', '')
-                print('experiment' + params + default_params + 'seed=' + str(i) + ', results_dir=' + results_dir + ')')
+                print('experiment' + params + 'seed=' + str(i) + ', results_dir=' + results_dir + ')')
         else:
             params_dict = get_experiment_default_params(experiment)
 
@@ -249,17 +236,16 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
     @staticmethod
     def _generate_results_dir(results_dir, exp):
         for key, value in exp.items():
-            subfolder = key + '_' + str(value)
-            results_dir = os.path.join(results_dir, subfolder)
-
+            if key.endswith('_'):
+                subfolder = key + '_' + str(value)
+                results_dir = os.path.join(results_dir, subfolder)
         return results_dir
 
     def _generate_exp_params(self, params_dict):
-        params_dict.update(self._default_params)
-
         seeds = np.arange(self._n_exps)
         for exp, seed in product(self._experiment_list, seeds):
-            params_dict.update(exp)
+            exp_new = {remove_last_underscores(key): value for key, value in exp.items()}
+            params_dict.update(exp_new)
             params_dict['seed'] = int(seed)
             params_dict['results_dir'] = self._generate_results_dir(self._exp_dir_local, exp)
             yield params_dict
@@ -349,6 +335,12 @@ def parse_args(func):
     parser.set_defaults(**get_experiment_default_params(func))
     args = parser.parse_args()
     return vars(args)
+
+
+def remove_last_underscores(key):
+    if key.endswith('__'):
+        key = key[:-2]
+    return key
 
 
 def run_experiment(func, args=None):
