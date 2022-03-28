@@ -360,7 +360,7 @@ def run_experiment(func, args=None):
     del args['joblib_n_seeds']
 
     def generate_joblib_seeds(params_dict):
-        final_seed = initial_seed + 1 if joblib_n_seeds is None else joblib_n_seeds
+        final_seed = initial_seed + (1 if joblib_n_seeds is None else joblib_n_seeds)
         seeds = np.arange(initial_seed, final_seed, dtype=int)
         for seed in seeds:
             params_dict['seed'] = int(seed)
