@@ -7,7 +7,7 @@ LOCAL = bool_local_cluster()
 TEST = False
 USE_CUDA = False
 
-PARTITION = 'test30m'  # 'amd', 'rtx'
+PARTITION = 'amd'  # 'amd', 'rtx', 'test30m' for lichtenberg
 GRES = 'gpu:1' if USE_CUDA else None  # gpu:rtx2080:1, gpu:rtx3080:1
 
 CONDA_ENV = 'py38'  # None
