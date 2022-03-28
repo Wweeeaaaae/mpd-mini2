@@ -18,11 +18,13 @@ def experiment(
     # EXPERIMENT
     filename = os.path.join(results_dir, 'log_' + str(seed) + '.txt')
     os.makedirs(results_dir, exist_ok=True)
-    print(f'Running experiment with seed {seed}, '
-          f'env {env}, env_param {env_param}, a {a}, '
-          f'boolean_param {boolean_param}, some_default_param {some_default_param}')
+    out_str = f'Running experiment with seed {seed}, env {env}, ' \
+              f'env_param {env_param}, a {a}, ' \
+              f'boolean_param {boolean_param}, some_default_param {some_default_param}'
+    print(out_str)
     with open(filename, 'w') as file:
         file.write('Some logs in a log file.')
+        file.write(out_str)
 
 
 if __name__ == '__main__':
