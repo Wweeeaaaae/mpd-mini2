@@ -6,10 +6,12 @@ from experiment_launcher.launcher import add_launcher_base_args, get_experiment_
 from experiment_launcher.utils import save_args
 
 
-def experiment(a=1,
+def experiment(env='env',
+               env_param='aa',
+               a=1,
                b_c=1,
-               boolean=True,
-               default='dft',
+               boolean_param=True,
+               some_default_param='b',
                seed=0,  # This argument is mandatory
                results_dir='/tmp'  # This argument is mandatory
                ):
@@ -29,8 +31,8 @@ def experiment(a=1,
     print('Running experiment with seed', str(seed),
           'and parameters a =', str(a),
           'b_c =', str(b_c),
-          'boolean =', str(boolean),
-          'default =', default)
+          'boolean =', str(boolean_param),
+          'default =', some_default_param)
     with open(filename, 'w') as file:
         file.write('Default parameters:\n')
         file.write('seed: ' + str(seed) + '\n')
@@ -39,8 +41,8 @@ def experiment(a=1,
         file.write('Experiment parameters:\n')
         file.write('a: ' + str(a) + '\n')
         file.write('b-c: ' + str(b_c) + '\n')
-        file.write('boolean: ' + str(boolean) + '\n')
-        file.write('default: ' + default + '\n')
+        file.write('boolean: ' + str(boolean_param) + '\n')
+        file.write('default: ' + some_default_param + '\n')
 
 
 def parse_args():
@@ -48,10 +50,12 @@ def parse_args():
 
     # Place your experiment arguments here
     arg_test = parser.add_argument_group('Test')
+    arg_test.add_argument("--env", type=str)
+    arg_test.add_argument("--env-param", type=str)
     arg_test.add_argument("--a", type=int)
     arg_test.add_argument("--b-c", type=int)
-    arg_test.add_argument("--boolean", action='store_true')
-    arg_test.add_argument('--default', type=str)
+    arg_test.add_argument("--boolean-param", action='store_true')
+    arg_test.add_argument('--some-default-param', type=str)
 
     # Leave unchanged
     parser = add_launcher_base_args(parser)
