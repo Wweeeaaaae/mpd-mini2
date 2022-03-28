@@ -202,7 +202,8 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
         full_path = self.save_slurm()
 
         for exp in self._experiment_list:
-            command_line_arguments = self._convert_to_command_line(exp)
+            exp_new_without_underscore = self.remove_last_underscores_dict(exp)
+            command_line_arguments = self._convert_to_command_line(exp_new_without_underscore)
             results_dir = self._generate_results_dir(self._exp_dir_slurm, exp)
 
             command = "sbatch " + full_path + ' ' + results_dir
@@ -244,11 +245,15 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
     def _generate_exp_params(self, params_dict):
         seeds = np.arange(self._n_exps)
         for exp, seed in product(self._experiment_list, seeds):
-            exp_new = {remove_last_underscores(key): value for key, value in exp.items()}
-            params_dict.update(exp_new)
+            exp_new_without_underscore = self.remove_last_underscores_dict(exp)
+            params_dict.update(exp_new_without_underscore)
             params_dict['seed'] = int(seed)
             params_dict['results_dir'] = self._generate_results_dir(self._exp_dir_local, exp)
             yield params_dict
+
+    @staticmethod
+    def remove_last_underscores_dict(exp_dict):
+        return {remove_last_underscores(key): value for key, value in exp_dict.items()}
 
     @staticmethod
     def _convert_to_command_line(exp):
