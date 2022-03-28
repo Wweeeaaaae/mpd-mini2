@@ -20,8 +20,8 @@ setup(
     description='A Python toolkit for launching experiments.',
     long_description=long_description,
     url='https://git.ias.informatik.tu-darmstadt.de/common/experiment_launcher',
-    author="Davide Tateo",
-    author_email='davide@robot-learning.de',
+    author="Davide Tateo, Joao Carvalho",
+    author_email='davide@robot-learning.de, joao@robot-learning.de',
     license='MIT',
     packages=[package for package in find_packages()
               if package.startswith('experiment_launcher')],

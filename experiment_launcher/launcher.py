@@ -1,7 +1,10 @@
+import argparse
 import inspect
 import json
 import os
+import socket
 from copy import copy
+from functools import wraps
 
 import git
 import numpy as np
@@ -9,6 +12,7 @@ from joblib import Parallel, delayed
 import datetime
 from importlib import import_module
 from itertools import product
+from distutils.util import strtobool
 
 
 class Launcher(object):
@@ -17,10 +21,10 @@ class Launcher(object):
 
     """
 
-    def __init__(self, exp_name, python_file, n_exps, n_cores=1, memory=2000,
+    def __init__(self, exp_name, python_file, n_exps, n_cores=1, memory_per_core=2000,
                  days=0, hours=24, minutes=0, seconds=0,
-                 project_name=None, base_dir=None, joblib_n_jobs=None, conda_env=None, gres=None, partition=None, begin=None,
-                 use_timestamp=False, use_underscore_argparse=False, max_seeds=10000):
+                 project_name=None, base_dir=None, joblib_n_jobs=None, conda_env=None, gres=None, partition=None,
+                 begin=None, use_timestamp=False, max_seeds=10000):
         """
         Constructor.
 
@@ -29,7 +33,7 @@ class Launcher(object):
             python_file (str): prefix of the python file that runs a single experiment
             n_exps (int): number of experiments
             n_cores (int): number of cpu cores
-            memory (int): maximum memory (slurm will kill the job if this is reached)
+            memory_per_core (int): maximum memory per core (slurm will kill the job if this is reached)
             days (int): number of days the experiment can last (in slurm)
             hours (int): number of hours the experiment can last (in slurm)
             minutes (int): number of minutes the experiment can last (in slurm)
@@ -43,7 +47,6 @@ class Launcher(object):
             partition (str): the partition to use in case of slurm execution. If None, no partition is specified.
             begin (str): start the slurm experiment at a given time (see --begin in slurm docs)
             use_timestamp (bool): add a timestamp to the experiment name
-            use_underscore_argparse (bool): whether to use underscore '_' in argparse instead of dash '-'
             max_seeds (int): interval [1, max_seeds-1] of random seeds to sample from
 
         """
@@ -51,7 +54,7 @@ class Launcher(object):
         self._python_file = python_file
         self._n_exps = n_exps
         self._n_cores = n_cores
-        self._memory = memory
+        self._memory_per_core = memory_per_core
         self._duration = Launcher._to_duration(days, hours, minutes, seconds)
         self._project_name = project_name
         assert (joblib_n_jobs is None or joblib_n_jobs > 0), "joblib_n_jobs must be None or > 0"
@@ -75,8 +78,6 @@ class Launcher(object):
             self._exp_dir_slurm = os.path.join(scratch_dir, self._exp_name)
         else:
             self._exp_dir_slurm = self._exp_dir_local
-
-        self._use_underscore_argparse = use_underscore_argparse
 
         if n_exps >= max_seeds:
             max_seeds = n_exps + 1
@@ -146,22 +147,19 @@ fi
             experiment_args += r'${@:2}'
         experiment_args += ' \\'
 
-        if self._use_underscore_argparse:
-            result_dir_code = '\t\t--results_dir $1'
-        else:
-            result_dir_code = '\t\t--results-dir $1'
+        result_dir_code = '\t\t--results_dir $1'
 
         joblib_code = ''
         if self._joblib_n_jobs is not None:
-            joblib_code = f'\\\n\t\t--joblib-n-jobs $3  '
+            joblib_code = f'\\\n\t\t--joblib_n_jobs $3  '
             N_EXPS = self._n_exps
             N_JOBS = self._joblib_n_jobs
             if N_EXPS < N_JOBS:
-                joblib_code += f'--joblib-n-seeds $2 \n'
+                joblib_code += f'--joblib_n_seeds $2 \n'
             elif N_EXPS % N_JOBS == 0:
-                joblib_code += f'--joblib-n-seeds $3 \n'
+                joblib_code += f'--joblib_n_seeds $3 \n'
             elif N_EXPS % N_JOBS != 0:
-                joblib_code += '--joblib-n-seeds ${JOBLIB_SEEDS} \n'
+                joblib_code += '--joblib_n_seeds ${JOBLIB_SEEDS} \n'
             else:
                 raise NotImplementedError
 
@@ -175,11 +173,11 @@ fi
 {project_name_option}{partition_option}{begin_option}{gres_option}
 # Mandatory parameters
 #SBATCH -J {self._exp_name}
-#SBATCH -a 0-{self._n_exps - 1 if self._joblib_n_jobs is None else self._n_exps // self._joblib_n_jobs}
+#SBATCH -a 0-{compute_job_array_joblib(self._n_exps, self._joblib_n_jobs)}
 #SBATCH -t {self._duration}
-#SBATCH -n 1
-#SBATCH -c {self._n_cores}
-#SBATCH --mem-per-cpu={self._memory}
+#SBATCH --ntasks 1
+#SBATCH --cpus-per-task {self._n_cores}
+#SBATCH --mem-per-cpu={self._memory_per_core}
 #SBATCH -o {self._exp_dir_slurm}/%A_%a.out
 #SBATCH -e {self._exp_dir_slurm}/%A_%a.err
 
@@ -212,16 +210,15 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
         full_path = self.save_slurm()
 
         for exp in self._experiment_list:
-            command_line_arguments = self._convert_to_command_line(exp, self._use_underscore_argparse)
+            command_line_arguments = self._convert_to_command_line(exp)
             if self._default_params:
                 command_line_arguments += ' '
-                command_line_arguments += self._convert_to_command_line(self._default_params,
-                                                                        self._use_underscore_argparse)
+                command_line_arguments += self._convert_to_command_line(self._default_params)
             results_dir = self._generate_results_dir(self._exp_dir_slurm, exp)
 
-            command = "sbatch " + full_path + ' ' + results_dir 
+            command = "sbatch " + full_path + ' ' + results_dir
             if self._joblib_n_jobs is not None:
-                command += ' ' + str(self._n_exps) + ' ' + str(self._joblib_n_jobs) 
+                command += ' ' + str(self._n_exps) + ' ' + str(self._joblib_n_jobs)
             command += ' ' + command_line_arguments
 
             if test:
@@ -272,18 +269,12 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
             yield params_dict
 
     @staticmethod
-    def _convert_to_command_line(exp, use_underscore_argparse):
+    def _convert_to_command_line(exp):
         command_line = ''
         for key, value in exp.items():
-            if use_underscore_argparse:
-                new_command = '--' + key + ' '
-            else:
-                new_command = '--' + key.replace('_', '-') + ' '
+            new_command = '--' + key + ' '
 
-            if isinstance(value, bool):
-                new_command = new_command if value else ''
-            else:
-                new_command += str(value) + ' '
+            new_command += str(value) + ' '
 
             command_line += new_command
 
@@ -297,6 +288,20 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
 
         return str(days) + '-' + h + ":" + m + ":" + s
 
+    @property
+    def exp_name(self):
+        return self._exp_name
+
+
+def compute_job_array_joblib(n_exps, joblib_n_jobs):
+    if joblib_n_jobs is None:
+        return n_exps - 1
+    else:
+        if n_exps % joblib_n_jobs == 0:
+            return n_exps // joblib_n_jobs - 1
+        else:
+            return n_exps // joblib_n_jobs
+
 
 def get_default_params(func):
     signature = inspect.signature(func)
@@ -304,11 +309,57 @@ def get_default_params(func):
     for k, v in signature.parameters.items():
         if v.default is not inspect.Parameter.empty:
             defaults[k] = v.default
-
     return defaults
 
 
-def run_experiment(func, args):
+def translate_exp_params_to_argparse(parser, func):
+    annotation_to_argparse = {
+        'str': str,
+        'int': int,
+        'float': float,
+        'bool': bool
+    }
+    arg_experiments = parser.add_argument_group('Experiment')
+    signature = inspect.signature(func)
+    for k, v in signature.parameters.items():
+        if k not in ['seed', 'results_dir']:
+            if v.default is not inspect.Parameter.empty:
+                if v.annotation.__name__ in annotation_to_argparse:
+                    if v.annotation.__name__ == 'bool':
+                        arg_experiments.add_argument(f"--{str(k)}", type=lambda x: bool(strtobool(x)),
+                                                     nargs='?', const=v.default, default=v.default)
+                    else:
+                        arg_experiments.add_argument(f"--{str(k)}", type=annotation_to_argparse[v.annotation.__name__])
+                else:
+                    raise NotImplementedError(f'{v.annotation.__name__} not found in annotation_to_argparse.')
+    return parser
+
+
+def add_launcher_base_args(parser):
+    arg_default = parser.add_argument_group('Default')
+    arg_default.add_argument('--seed', type=int)
+    arg_default.add_argument('--results_dir', type=str)
+    arg_default.add_argument('--joblib_n_jobs', type=int)
+    arg_default.add_argument('--joblib_n_seeds', type=int)
+    return parser
+
+
+def parse_args(func):
+    parser = argparse.ArgumentParser()
+
+    # Place your experiment arguments here
+    parser = translate_exp_params_to_argparse(parser, func)
+
+    # Leave unchanged
+    parser = add_launcher_base_args(parser)
+    parser.set_defaults(**get_default_params(func))
+    args = parser.parse_args()
+    return vars(args)
+
+
+def run_experiment(func, args=None):
+    if not args:
+        args = parse_args(func)
     joblib_n_jobs = copy(args['joblib_n_jobs'])
     joblib_n_seeds = copy(args['joblib_n_seeds'])
     initial_seed = copy(args['seed'])
@@ -328,15 +379,6 @@ def run_experiment(func, args):
                                    for params in generate_joblib_seeds(args))
 
 
-def add_launcher_base_args(parser):
-    arg_default = parser.add_argument_group('Default')
-    arg_default.add_argument('--seed', type=int)
-    arg_default.add_argument('--results-dir', type=str)
-    arg_default.add_argument('--joblib-n-jobs', type=int)
-    arg_default.add_argument('--joblib-n-seeds', type=int)
-    return parser
-
-
 def save_args(results_dir, args, git_repo_path=None, seed=None):
     repo = git.Repo(git_repo_path, search_parent_directories=True)
     args['git_hash'] = repo.head.object.hexsha
@@ -349,3 +391,24 @@ def save_args(results_dir, args, git_repo_path=None, seed=None):
 
     del args['git_hash']
     del args['git_url']
+
+
+def bool_local_cluster():
+    hostname = socket.gethostname()
+    return False if hostname == 'mn01' or 'logc' in hostname else True
+
+
+def single_experiment(exp_func):
+    @wraps(exp_func)
+    def wrapper(*args, **kwargs):
+        # Make results directory
+        results_dir = os.path.join(kwargs['results_dir'], str(kwargs['seed']))
+        os.makedirs(results_dir, exist_ok=True)
+        kwargs['results_dir'] = results_dir
+        # Save arguments
+        save_args(results_dir, kwargs, git_repo_path='./')
+
+        # Run the experiment
+        exp_func(*args, **kwargs)
+
+    return wrapper

@@ -1,27 +1,18 @@
-import argparse
 import os
-import time
 
-from experiment_launcher import get_default_params, run_experiment, add_launcher_base_args, save_args
+from experiment_launcher import run_experiment, single_experiment
 
 
-def experiment(a=1,
-               b_c=1,
-               boolean=True,
-               default='dft',
-               seed=0,  # This argument is mandatory
-               results_dir='/tmp'  # This argument is mandatory
-               ):
+@single_experiment
+def experiment(
+    a: int = 1,
+    b_c: int = 1,
+    boolean: bool = True,
+    default: str = 'dft',
 
-    ####################################################################################################################
-    # SETUP
-    # Create results directory
-    results_dir = os.path.join(results_dir, str(seed))
-    os.makedirs(results_dir, exist_ok=True)
-    # Save arguments
-    save_args(results_dir, locals(), git_repo_path='./')
-
-    ####################################################################################################################
+    seed: int = 0,  # This argument is mandatory
+    results_dir: str = '/tmp'  # This argument is mandatory
+):
     # EXPERIMENT
     filename = os.path.join(results_dir, 'log_' + str(seed) + '.txt')
     os.makedirs(results_dir, exist_ok=True)
@@ -42,24 +33,6 @@ def experiment(a=1,
         file.write('default: ' + default + '\n')
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-
-    # Place your experiment arguments here
-    arg_test = parser.add_argument_group('Test')
-    arg_test.add_argument("--a", type=int)
-    arg_test.add_argument("--b-c", type=int)
-    arg_test.add_argument("--boolean", action='store_true')
-    arg_test.add_argument('--default', type=str)
-
-    # Leave unchanged
-    parser = add_launcher_base_args(parser)
-    parser.set_defaults(**get_default_params(experiment))
-    args = parser.parse_args()
-    return vars(args)
-
-
 if __name__ == '__main__':
     # Leave unchanged
-    args = parse_args()
-    run_experiment(experiment, args)
+    run_experiment(experiment)

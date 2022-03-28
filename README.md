@@ -18,10 +18,10 @@ pip3 install  -e .
 
 ## How to Use
 
-- Create in your own project two files [test.py](examples/test.py)
+- Create in your own project two files [test.py](examples/test_old.py)
   and [launch_test.py](examples/launch_test.py)
 
-- Create an experiment file as in [test.py](examples/test.py)
+- Create an experiment file as in [test.py](examples/test_old.py)
   - This file consists of two base functions: `experiment`, `parse_args`; and the
     `if __name__ == '__main__'` block
   - The function `experiment` is the core of your experiment
