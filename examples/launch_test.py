@@ -1,43 +1,65 @@
-import os
 from itertools import product
+
 from experiment_launcher import Launcher
+from experiment_launcher.utils import bool_local_cluster
 
+LOCAL = bool_local_cluster()
+TEST = False
+USE_CUDA = False
 
-if __name__ == '__main__':
-    LOCAL = False
-    TEST = False
-    USE_CUDA = False
+PARTITION = 'amd'  # 'amd', 'rtx', 'test30m' for lichtenberg
+GRES = 'gpu:1' if USE_CUDA else None  # gpu:rtx2080:1, gpu:rtx3080:1
 
-    JOBLIB_PARALLEL_JOBS = 5  # or os.cpu_count() to use all cores
-    N_SEEDS = 12
+CONDA_ENV = 'py38'  # None
 
-    launcher = Launcher(exp_name='test_launcher',
-                        python_file='test',
-                        # project_name='project01234',
-                        n_exps=N_SEEDS,
-                        joblib_n_jobs=JOBLIB_PARALLEL_JOBS,
-                        n_cores=JOBLIB_PARALLEL_JOBS * 1,
-                        memory=JOBLIB_PARALLEL_JOBS * 1000,
-                        days=0,
-                        hours=0,
-                        minutes=2,
-                        seconds=0,
-                        partition='test30m',
-                        # conda_env='base',
-                        gres='gpu:rtx2080:1' if USE_CUDA else None,
-                        use_timestamp=True,
-                        use_underscore_argparse=False
-                        )
+N_SEEDS = 12
 
-    a_list = [1, 2, 3]
-    b_c_list = [11, 12]
-    boolean_list = [True, False]
+if LOCAL:
+    JOBLIB_PARALLEL_JOBS = 5  # os.cpu_count()
+else:
+    JOBLIB_PARALLEL_JOBS = 1
 
-    launcher.add_default_params(default='b')
+N_CORES_JOB = 1
+MEMORY_SINGLE_JOB = 1000
 
-    for a, b_c, boolean in product(a_list, b_c_list, boolean_list):
-        launcher.add_experiment(a=a,
-                                b_c=b_c,
-                                boolean=boolean)
+launcher = Launcher(exp_name='test_launcher',
+                    python_file='test',
+                    # project_name='project01234',
+                    n_exps=N_SEEDS,
+                    joblib_n_jobs=JOBLIB_PARALLEL_JOBS,
+                    n_cores=JOBLIB_PARALLEL_JOBS * N_CORES_JOB,
+                    memory_per_core=MEMORY_SINGLE_JOB,
+                    days=0,
+                    hours=0,
+                    minutes=2,
+                    seconds=0,
+                    partition=PARTITION,
+                    conda_env=CONDA_ENV,
+                    gres=GRES,
+                    use_timestamp=True
+                    )
 
-    launcher.run(LOCAL, TEST)
+envs = {
+    'env_00': {'env_param': 'aa'},
+    'env_01': {'env_param': 'bb'}
+}
+a_l = [1, 2, 3]
+boolean_param_l = [True, False]
+some_default_param = 'b'
+
+for env in envs:
+    d = envs[env]
+    for a, boolean_param in product(a_l, boolean_param_l):
+        launcher.add_experiment(
+            **d,
+            some_default_param=some_default_param,
+
+            # A subdirectory will be created for parameters with a trailing double underscore.
+            env__=env,
+            a__=a,
+            boolean_param__=boolean_param,
+
+            env='some_env'  # This value will be overwritten by env__
+        )
+
+launcher.run(LOCAL, TEST)
