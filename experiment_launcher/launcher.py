@@ -2,7 +2,7 @@ import argparse
 import datetime
 import inspect
 import os
-from copy import copy
+from copy import copy, deepcopy
 from distutils.util import strtobool
 from importlib import import_module
 from itertools import product
@@ -80,7 +80,7 @@ class Launcher(object):
         self._max_seeds = max_seeds
 
     def add_experiment(self, **kwargs):
-        self._experiment_list.append(kwargs)
+        self._experiment_list.append(deepcopy(kwargs))
 
     def run(self, local, test=False):
         if local:
@@ -253,7 +253,12 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
 
     @staticmethod
     def remove_last_underscores_dict(exp_dict):
-        return {remove_last_underscores(key): value for key, value in exp_dict.items()}
+        exp_dict_new = copy(exp_dict)
+        for key, value in exp_dict.items():
+            if key.endswith('__'):
+                exp_dict_new[key[:-2]] = value
+                del exp_dict_new[key]
+        return exp_dict_new
 
     @staticmethod
     def _convert_to_command_line(exp):
@@ -340,12 +345,6 @@ def parse_args(func):
     parser.set_defaults(**get_experiment_default_params(func))
     args = parser.parse_args()
     return vars(args)
-
-
-def remove_last_underscores(key):
-    if key.endswith('__'):
-        key = key[:-2]
-    return key
 
 
 def run_experiment(func, args=None):

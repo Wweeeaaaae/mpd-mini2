@@ -48,15 +48,18 @@ boolean_param_l = [True, False]
 some_default_param = 'b'
 
 for env in envs:
+    d = envs[env]
     for a, boolean_param in product(a_l, boolean_param_l):
         launcher.add_experiment(
-            env_param=envs[env]['env_param'],
+            **d,
             some_default_param=some_default_param,
 
             # A subdirectory will be created for parameters with a trailing double underscore.
             env__=env,
             a__=a,
-            boolean_param__=boolean_param
+            boolean_param__=boolean_param,
+
+            env='some_env'  # This value will be overwritten by env__
         )
 
 launcher.run(LOCAL, TEST)
