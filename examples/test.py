@@ -6,9 +6,11 @@ from experiment_launcher.decorators import single_experiment
 from experiment_launcher.launcher import add_launcher_base_args, get_experiment_default_params
 
 
+# This decorator is not mandatory.
+# It creates results_dir as results_dir/seed, and saves the experiment arguments into a file.
 @single_experiment
 def experiment(
-    env: str = 'env',
+    env: str = 'env',  # You need to specify the argument type if you use the automatic parser.
     env_param: str = 'aa',
     a: int = 1,
     boolean_param: bool = True,
