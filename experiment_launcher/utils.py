@@ -1,6 +1,7 @@
 import json
 import os
 import socket
+import yaml
 
 import git
 from git import InvalidGitRepositoryError
@@ -16,8 +17,13 @@ def save_args(results_dir, args, git_repo_path=None, seed=None):
         args['git_url'] = ''
 
     filename = 'args.json' if seed is None else f'args-{seed}.json'
+    filename = 'args.yaml' if seed is None else f'args-{seed}.yaml'
     with open(os.path.join(results_dir, filename), 'w') as f:
-        json.dump(args, f, indent=2)
+        yaml.dump(args, f, Dumper=yaml.Dumper)
+
+    # filename = 'args.json' if seed is None else f'args-{seed}.json'
+    # with open(os.path.join(results_dir, filename), 'w') as f:
+    #     json.dump(args, f, indent=2)
 
     del args['git_hash']
     del args['git_url']
