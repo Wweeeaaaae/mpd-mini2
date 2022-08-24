@@ -68,11 +68,11 @@ class Launcher(object):
         base_dir = './logs' if base_dir is None else base_dir
         self._exp_dir_local = os.path.join(base_dir, self._exp_name)
 
-        scratch_dir = os.path.join('/work', 'scratch', os.getenv('USER'))
-        if os.path.isdir(scratch_dir):
-            self._exp_dir_slurm = os.path.join(scratch_dir, self._exp_name)
-        else:
-            self._exp_dir_slurm = self._exp_dir_local
+        self._exp_dir_slurm = self._exp_dir_local
+        if os.getenv("USER"):
+            scratch_dir = os.path.join('/work', 'scratch', os.getenv('USER'))
+            if os.path.isdir(scratch_dir):
+                self._exp_dir_slurm = os.path.join(scratch_dir, self._exp_name)
 
         if n_exps >= max_seeds:
             max_seeds = n_exps + 1
