@@ -82,9 +82,12 @@ class Launcher(object):
     def add_experiment(self, **kwargs):
         self._experiment_list.append(deepcopy(kwargs))
 
-    def run(self, local, test=False):
+    def run(self, local, test=False, sequential=False):
         if local:
-            self._run_joblib(test)
+            if sequential:
+                self._run_sequential(test)
+            else:
+                self._run_joblib(test)
         else:
             self._run_slurm(test)
 
@@ -233,6 +236,24 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
 
             Parallel(n_jobs=self._joblib_n_jobs)(delayed(experiment)(**params)
                                                  for params in self._generate_exp_params(params_dict))
+
+    def _run_sequential(self, test):
+        if not test:
+            os.makedirs(self._exp_dir_local, exist_ok=True)
+
+        module = import_module(self._python_file)
+        experiment = module.experiment
+
+        if test:
+            for exp, i in product(self._experiment_list, range(self._n_exps)):
+                results_dir = self._generate_results_dir(self._exp_dir_local, exp)
+                params = str(exp).replace('{', '(').replace('}', '').replace(': ', '=').replace('\'', '')
+                print('experiment' + params + 'seed=' + str(i) + ', results_dir=' + results_dir + ')')
+        else:
+            params_dict = get_experiment_default_params(experiment)
+
+            for params in self._generate_exp_params(params_dict):
+                experiment(**params)
 
     @staticmethod
     def _generate_results_dir(results_dir, exp):
