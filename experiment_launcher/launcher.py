@@ -262,7 +262,12 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
             params_dict = get_experiment_default_params(experiment)
 
             for params in self._generate_exp_params(params_dict):
-                experiment(**params)
+                try:
+                    experiment(**params)
+                except Exception:
+                    print("Experiment failed with parameters:")
+                    print(params)
+                    traceback.print_exc()
 
     @staticmethod
     def _generate_results_dir(results_dir, exp):
