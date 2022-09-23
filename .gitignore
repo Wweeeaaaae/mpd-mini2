@@ -3,5 +3,6 @@ dist/
 *.swp
 __pycache__/
 logs/
+wandb/
 *.egg-info/
 

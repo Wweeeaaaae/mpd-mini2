@@ -1,23 +1,35 @@
 import argparse
 import os
 
+import wandb
+
 from experiment_launcher import run_experiment
-from experiment_launcher.decorators import single_experiment
+from experiment_launcher.decorators import single_experiment, single_experiment_wandb
 from experiment_launcher.launcher import add_launcher_base_args, get_experiment_default_params
 
 
 # This decorator is not mandatory.
 # It creates results_dir as results_dir/seed, and saves the experiment arguments into a file.
-@single_experiment
+@single_experiment_wandb
 def experiment(
+    #######################################
     env: str = 'env',  # You need to specify the argument type if you use the automatic parser.
     env_param: str = 'aa',
     a: int = 1,
     boolean_param: bool = True,
     some_default_param: str = 'b',
 
-    seed: int = 0,  # This argument is mandatory
-    results_dir: str = '/tmp'  # This argument is mandatory
+    #######################################
+    # WandB
+    wandb_enabled: bool = False,
+    wandb_entity: str = 'jaccarvalho',
+    wandb_project: str = 'test_experiment_launcher',
+    wandb_group: str = 'test_group',
+
+    #######################################
+    # MANDATORY
+    seed: int = 0,
+    results_dir: str = 'logs'
 ):
     # EXPERIMENT
     filename = os.path.join(results_dir, 'log_' + str(seed) + '.txt')
@@ -28,6 +40,8 @@ def experiment(
     with open(filename, 'w') as file:
         file.write('Some logs in a log file.\n')
         file.write(out_str)
+
+    wandb.log({'seed': seed})
 
 
 # You can specify your own parser, or use the experiment_launcher parser.

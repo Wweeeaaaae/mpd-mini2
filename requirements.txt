@@ -2,3 +2,4 @@ joblib
 gitpython
 numpy
 pyyaml
+wandb

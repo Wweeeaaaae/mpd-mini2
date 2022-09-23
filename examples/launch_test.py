@@ -54,6 +54,11 @@ for env in envs:
             **d,
             some_default_param=some_default_param,
 
+            wandb_enabled=True,
+            wandb_entity='jaccarvalho',
+            wandb_project='test_experiment_launcher',
+            wandb_group=f'test_group-{env}-{a}={boolean_param}',
+
             # A subdirectory will be created for parameters with a trailing double underscore.
             env__=env,
             a__=a,
