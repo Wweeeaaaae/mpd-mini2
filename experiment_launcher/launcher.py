@@ -2,6 +2,7 @@ import argparse
 import datetime
 import inspect
 import os
+import traceback
 from copy import copy, deepcopy
 from distutils.util import strtobool
 from importlib import import_module
@@ -232,9 +233,17 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
                 params = str(exp).replace('{', '(').replace('}', '').replace(': ', '=').replace('\'', '')
                 print('experiment' + params + 'seed=' + str(i) + ', results_dir=' + results_dir + ')')
         else:
+            def experiment_wrapper(params):
+                try:
+                    experiment(**params)
+                except Exception:
+                    print("Experiment failed with parameters:")
+                    print(params)
+                    traceback.print_exc()
+
             params_dict = get_experiment_default_params(experiment)
 
-            Parallel(n_jobs=self._joblib_n_jobs)(delayed(experiment)(**params)
+            Parallel(n_jobs=self._joblib_n_jobs)(delayed(experiment_wrapper)(params)
                                                  for params in self._generate_exp_params(params_dict))
 
     def _run_sequential(self, test):
@@ -253,7 +262,12 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
             params_dict = get_experiment_default_params(experiment)
 
             for params in self._generate_exp_params(params_dict):
-                experiment(**params)
+                try:
+                    experiment(**params)
+                except Exception:
+                    print("Experiment failed with parameters:")
+                    print(params)
+                    traceback.print_exc()
 
     @staticmethod
     def _generate_results_dir(results_dir, exp):
