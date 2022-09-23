@@ -2,6 +2,7 @@ import argparse
 import datetime
 import inspect
 import os
+import traceback
 from copy import copy, deepcopy
 from distutils.util import strtobool
 from importlib import import_module
@@ -68,11 +69,11 @@ class Launcher(object):
         base_dir = './logs' if base_dir is None else base_dir
         self._exp_dir_local = os.path.join(base_dir, self._exp_name)
 
-        scratch_dir = os.path.join('/work', 'scratch', os.getenv('USER'))
-        if os.path.isdir(scratch_dir):
-            self._exp_dir_slurm = os.path.join(scratch_dir, self._exp_name)
-        else:
-            self._exp_dir_slurm = self._exp_dir_local
+        self._exp_dir_slurm = self._exp_dir_local
+        if os.getenv("USER"):
+            scratch_dir = os.path.join('/work', 'scratch', os.getenv('USER'))
+            if os.path.isdir(scratch_dir):
+                self._exp_dir_slurm = os.path.join(scratch_dir, self._exp_name)
 
         if n_exps >= max_seeds:
             max_seeds = n_exps + 1
@@ -82,9 +83,12 @@ class Launcher(object):
     def add_experiment(self, **kwargs):
         self._experiment_list.append(deepcopy(kwargs))
 
-    def run(self, local, test=False):
+    def run(self, local, test=False, sequential=False):
         if local:
-            self._run_joblib(test)
+            if sequential:
+                self._run_sequential(test)
+            else:
+                self._run_joblib(test)
         else:
             self._run_slurm(test)
 
@@ -229,10 +233,41 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
                 params = str(exp).replace('{', '(').replace('}', '').replace(': ', '=').replace('\'', '')
                 print('experiment' + params + 'seed=' + str(i) + ', results_dir=' + results_dir + ')')
         else:
+            def experiment_wrapper(params):
+                try:
+                    experiment(**params)
+                except Exception:
+                    print("Experiment failed with parameters:")
+                    print(params)
+                    traceback.print_exc()
+
             params_dict = get_experiment_default_params(experiment)
 
-            Parallel(n_jobs=self._joblib_n_jobs)(delayed(experiment)(**params)
+            Parallel(n_jobs=self._joblib_n_jobs)(delayed(experiment_wrapper)(params)
                                                  for params in self._generate_exp_params(params_dict))
+
+    def _run_sequential(self, test):
+        if not test:
+            os.makedirs(self._exp_dir_local, exist_ok=True)
+
+        module = import_module(self._python_file)
+        experiment = module.experiment
+
+        if test:
+            for exp, i in product(self._experiment_list, range(self._n_exps)):
+                results_dir = self._generate_results_dir(self._exp_dir_local, exp)
+                params = str(exp).replace('{', '(').replace('}', '').replace(': ', '=').replace('\'', '')
+                print('experiment' + params + 'seed=' + str(i) + ', results_dir=' + results_dir + ')')
+        else:
+            params_dict = get_experiment_default_params(experiment)
+
+            for params in self._generate_exp_params(params_dict):
+                try:
+                    experiment(**params)
+                except Exception:
+                    print("Experiment failed with parameters:")
+                    print(params)
+                    traceback.print_exc()
 
     @staticmethod
     def _generate_results_dir(results_dir, exp):
