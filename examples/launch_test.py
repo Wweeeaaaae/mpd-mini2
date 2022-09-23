@@ -54,17 +54,18 @@ for env in envs:
             **d,
             some_default_param=some_default_param,
 
-            wandb_enabled=True,
-            wandb_entity='jaccarvalho',
-            wandb_project='test_experiment_launcher',
-            wandb_group=f'test_group-{env}-{a}={boolean_param}',
-
             # A subdirectory will be created for parameters with a trailing double underscore.
             env__=env,
             a__=a,
             boolean_param__=boolean_param,
 
-            env='some_env'  # This value will be overwritten by env__
+            env='some_env',  # This value will be overwritten by env__
+
+            # Weights and Biases
+            wandb_enabled=False,
+            wandb_entity='jaccarvalho',
+            wandb_project='test_experiment_launcher',
+            wandb_group=f'test_group-{env}-{a}={boolean_param}'
         )
 
 launcher.run(LOCAL, TEST)
