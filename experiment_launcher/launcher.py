@@ -243,7 +243,7 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
 
             params_dict = get_experiment_default_params(experiment)
 
-            Parallel(n_jobs=self._joblib_n_jobs)(delayed(experiment_wrapper)(params)
+            Parallel(n_jobs=self._joblib_n_jobs)(delayed(experiment_wrapper)(deepcopy(params))
                                                  for params in self._generate_exp_params(params_dict))
 
     def _run_sequential(self, test):
