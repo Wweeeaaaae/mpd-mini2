@@ -344,7 +344,8 @@ def translate_experiment_params_to_argparse(parser, func):
         'str': str,
         'int': int,
         'float': float,
-        'bool': bool
+        'bool': bool,
+        'list': None
     }
     arg_experiments = parser.add_argument_group('Experiment')
     signature = inspect.signature(func)
@@ -355,6 +356,8 @@ def translate_experiment_params_to_argparse(parser, func):
                     if v.annotation.__name__ == 'bool':
                         arg_experiments.add_argument(f"--{str(k)}", type=lambda x: bool(strtobool(x)),
                                                      nargs='?', const=v.default, default=v.default)
+                    elif v.annotation.__name__ == 'list':
+                        arg_experiments.add_argument(f"--{str(k)}", nargs='+')
                     else:
                         arg_experiments.add_argument(f"--{str(k)}", type=annotation_to_argparse[v.annotation.__name__])
                 else:
