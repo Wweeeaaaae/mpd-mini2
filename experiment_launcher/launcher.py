@@ -273,7 +273,7 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
     def _generate_results_dir(results_dir, exp):
         for key, value in exp.items():
             if key.endswith('_'):
-                subfolder = key + '_' + str(value)
+                subfolder = key + '_' + str(value).replace(' ', '')
                 results_dir = os.path.join(results_dir, subfolder)
         return results_dir
 
@@ -301,7 +301,11 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
         for key, value in exp.items():
             new_command = '--' + key + ' '
 
-            new_command += str(value) + ' '
+            if isinstance(value, list):
+                raise NotImplementedError
+                new_command += ' '.join(map(str,value)) + ' ' 
+            else:
+                new_command += str(value) + ' '
 
             command_line += new_command
 
