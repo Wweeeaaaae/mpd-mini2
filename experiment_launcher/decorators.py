@@ -19,9 +19,6 @@ def pseudo_single_experiment(exp_func, save_args_yaml=False, use_wandb=False):
         save_args(results_dir, kwargs, git_repo_path='./', save_args_yaml=save_args_yaml)
         print(kwargs)
 
-        # Fix seed
-        fix_random_seed(kwargs['seed'])
-
         # Start WandB
         wandb_run = None
         if use_wandb:
