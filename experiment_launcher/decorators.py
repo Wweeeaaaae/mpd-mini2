@@ -3,7 +3,7 @@ import datetime
 import os
 from functools import wraps, partial
 
-from experiment_launcher.utils import save_args, fix_random_seed, start_wandb
+from experiment_launcher.utils import save_args, start_wandb
 
 
 def pseudo_single_experiment(exp_func, save_args_yaml=False, use_wandb=False):
