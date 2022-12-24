@@ -231,6 +231,8 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
             for exp, i in product(self._experiment_list, range(self._n_exps)):
                 results_dir = self._generate_results_dir(self._exp_dir_local, exp)
                 params = str(exp).replace('{', '(').replace('}', '').replace(': ', '=').replace('\'', '')
+                if params:
+                    params += ', '
                 print('experiment' + params + 'seed=' + str(i) + ', results_dir=' + results_dir + ')')
         else:
             def experiment_wrapper(params):
@@ -243,7 +245,7 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
 
             params_dict = get_experiment_default_params(experiment)
 
-            Parallel(n_jobs=self._joblib_n_jobs)(delayed(experiment_wrapper)(deepcopy(params))
+            Parallel(n_jobs=self._joblib_n_jobs)(delayed(experiment_wrapper)(params)
                                                  for params in self._generate_exp_params(params_dict))
 
     def _run_sequential(self, test):
@@ -257,11 +259,13 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
             for exp, i in product(self._experiment_list, range(self._n_exps)):
                 results_dir = self._generate_results_dir(self._exp_dir_local, exp)
                 params = str(exp).replace('{', '(').replace('}', '').replace(': ', '=').replace('\'', '')
+                if params:
+                    params += ', '
                 print('experiment' + params + 'seed=' + str(i) + ', results_dir=' + results_dir + ')')
         else:
-            params_dict = get_experiment_default_params(experiment)
+            default_params_dict = get_experiment_default_params(experiment)
 
-            for params in self._generate_exp_params(params_dict):
+            for params in self._generate_exp_params(default_params_dict):
                 try:
                     experiment(**params)
                 except Exception:
@@ -277,9 +281,10 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
                 results_dir = os.path.join(results_dir, subfolder)
         return results_dir
 
-    def _generate_exp_params(self, params_dict):
+    def _generate_exp_params(self, default_params_dict):
         seeds = np.arange(self._n_exps)
         for exp, seed in product(self._experiment_list, seeds):
+            params_dict = deepcopy(default_params_dict)
             exp_new_without_underscore = self.remove_last_underscores_dict(exp)
             params_dict.update(exp_new_without_underscore)
             params_dict['seed'] = int(seed)
@@ -371,6 +376,38 @@ def add_launcher_base_args(parser):
     return parser
 
 
+def has_kwargs(func):
+    signature = inspect.signature(func)
+    for k, v in signature.parameters.items():
+        if v.kind == v.VAR_KEYWORD:
+            return True
+
+    return False
+
+
+def string_to_primitive(string):
+    try:
+        return int(string)
+    except ValueError:
+        try:
+            return float(string)
+        except ValueError:
+            return string
+
+
+def parse_unknown_args(unknown):
+    kwargs = dict()
+    skip = False
+    for i, arg in enumerate(unknown):
+        if not skip and arg.startswith('--') and i + 1 < len(unknown):
+            kwargs[arg[:2]] = string_to_primitive(unknown[i+1])
+            skip = True
+        else:
+            skip = False
+
+    return kwargs
+
+
 def parse_args(func):
     parser = argparse.ArgumentParser()
 
@@ -378,13 +415,25 @@ def parse_args(func):
 
     parser = add_launcher_base_args(parser)
     parser.set_defaults(**get_experiment_default_params(func))
-    args = parser.parse_args()
-    return vars(args)
+
+    if has_kwargs(func):
+        args, unknown = parser.parse_known_args()
+        kwargs = parse_unknown_args(unknown)
+
+        args = vars(args)
+        args.update(kwargs)
+
+        return args
+    else:
+        args = parser.parse_args()
+        return vars(args)
 
 
 def run_experiment(func, args=None):
+
     if not args:
         args = parse_args(func)
+
     joblib_n_jobs = copy(args['joblib_n_jobs'])
     joblib_n_seeds = copy(args['joblib_n_seeds'])
     initial_seed = copy(args['seed'])
