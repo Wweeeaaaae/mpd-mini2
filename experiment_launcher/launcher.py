@@ -21,7 +21,7 @@ class Launcher(object):
     def __init__(self, exp_name, python_file, n_exps, n_cores=1, memory_per_core=2000,
                  days=0, hours=24, minutes=0, seconds=0,
                  project_name=None, base_dir=None, joblib_n_jobs=None, conda_env=None, gres=None, partition=None,
-                 begin=None, use_timestamp=False, max_seeds=10000):
+                 begin=None, use_timestamp=False, max_seeds=10000, compact_dirs=False):
         """
         Constructor.
 
@@ -45,6 +45,7 @@ class Launcher(object):
             begin (str): start the slurm experiment at a given time (see --begin in slurm docs)
             use_timestamp (bool): add a timestamp to the experiment name
             max_seeds (int): interval [1, max_seeds-1] of random seeds to sample from
+            compact_dirs (bool): If true, only the parameter name is used for the directory name.
 
         """
         self._exp_name = exp_name
@@ -79,6 +80,8 @@ class Launcher(object):
             max_seeds = n_exps + 1
             print(f"max_seeds must be larger than the number of experiments. Setting max_seeds to {max_seeds}")
         self._max_seeds = max_seeds
+
+        self._compact_dirs = compact_dirs
 
     def add_experiment(self, **kwargs):
         self._experiment_list.append(deepcopy(kwargs))
@@ -273,11 +276,13 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
                     print(params)
                     traceback.print_exc()
 
-    @staticmethod
-    def _generate_results_dir(results_dir, exp):
+    def _generate_results_dir(self, results_dir, exp):
         for key, value in exp.items():
             if key.endswith('_'):
-                subfolder = key + '_' + str(value)
+                if self._compact_dirs:
+                    subfolder = str(value)
+                else:
+                    subfolder = key + '_' + str(value)
                 results_dir = os.path.join(results_dir, subfolder)
         return results_dir
 
