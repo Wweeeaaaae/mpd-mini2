@@ -400,7 +400,7 @@ def parse_unknown_args(unknown):
     skip = False
     for i, arg in enumerate(unknown):
         if not skip and arg.startswith('--') and i + 1 < len(unknown):
-            kwargs[arg[:2]] = string_to_primitive(unknown[i+1])
+            kwargs[arg[2:]] = string_to_primitive(unknown[i+1])
             skip = True
         else:
             skip = False
