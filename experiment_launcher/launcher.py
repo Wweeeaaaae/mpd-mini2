@@ -27,7 +27,7 @@ class Launcher(object):
 
         Args:
             exp_name (str): name of the experiment
-            python_file (str): prefix of the python file that runs a single experiment
+            python_file (str): name of the python module running a single experiment
             n_exps (int): number of experiments
             n_cores (int): number of cpu cores
             memory_per_core (int): maximum memory per core (slurm will kill the job if this is reached)
@@ -135,9 +135,9 @@ fi
             else:
                 raise Exception('You do not have a /home/USER/miniconda3 or /home/USER/anaconda3 directories')
             execution_code += f'conda activate {self._conda_env}\n\n'
-            execution_code += f'python {self._python_file}.py \\'
+            execution_code += f'python {self._python_file_path} \\'
         else:
-            execution_code += f'python3  {self._python_file}.py \\'
+            execution_code += f'python3  {self._python_file_path} \\'
 
         experiment_args = '\t\t'
         if self._joblib_n_jobs is not None:
@@ -328,6 +328,11 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
     @property
     def exp_name(self):
         return self._exp_name
+
+    @property
+    def _python_file_path(self):
+        module = import_module(self._python_file)
+        return module.__file__
 
 
 def compute_job_array_joblib(n_exps, joblib_n_jobs):
