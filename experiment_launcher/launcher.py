@@ -329,6 +329,12 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
     def exp_name(self):
         return self._exp_name
 
+    def log_dir(self, local=True):
+        if local:
+            return self._exp_dir_local
+        else:
+            return self._exp_dir_slurm
+
     @property
     def _python_file_path(self):
         module = import_module(self._python_file)
