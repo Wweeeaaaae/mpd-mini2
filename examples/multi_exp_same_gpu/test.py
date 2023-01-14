@@ -28,14 +28,16 @@ def experiment(
     # EXPERIMENT
     print(f'DEBUG MODE: {debug}')
 
-    tensor = torch.ones(tensor_size, device='cuda' if torch.cuda.is_available() else 'cpu')
+    tensor1 = torch.ones(tensor_size, device='cuda' if torch.cuda.is_available() else 'cpu')
+    tensor2 = tensor1.clone()
 
     print(f'Env: {env}')
-    print(f'Tensor shape: {tensor.shape}')
+    print(f'Tensor shape: {tensor1.shape}')
 
     wandb.log({'seed': seed}, step=1)
 
-    time.sleep(10)
+    for i in range(10000000):
+        tensor = tensor1 * tensor2
 
 
 if __name__ == '__main__':
