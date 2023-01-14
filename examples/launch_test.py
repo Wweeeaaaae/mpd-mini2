@@ -7,11 +7,6 @@ LOCAL = bool_local_cluster()
 TEST = False
 USE_CUDA = False
 
-PARTITION = 'amd'  # 'amd2,amd', 'rtx2,rtx', 'test30m' for lichtenberg
-GRES = 'gpu:1' if USE_CUDA else None  # gpu:rtx2080:1, gpu:rtx3080:1, gpu:rtx3090:1
-
-CONDA_ENV = 'el'  # None
-
 N_SEEDS = 3
 
 if LOCAL:
@@ -19,20 +14,25 @@ if LOCAL:
 else:
     JOBLIB_PARALLEL_JOBS = 1
 
-N_CORES_JOB = 1
+N_CORES = 1
 MEMORY_SINGLE_JOB = 1000
+MEMORY_PER_CORE = MEMORY_SINGLE_JOB // N_CORES
+PARTITION = 'amd2,amd'  # 'amd', 'rtx'
+GRES = 'gpu:1' if USE_CUDA else None  # gpu:rtx2080:1, gpu:rtx3080:1
+CONDA_ENV = 'el'  # None
 
 launcher = Launcher(
     exp_name='test_launcher',
     python_file='test',
-    # project_name='project01234',
+    # project_name='project01234',  # for hrz cluster
     n_exps=N_SEEDS,
-    joblib_n_jobs=JOBLIB_PARALLEL_JOBS,
-    n_cores=JOBLIB_PARALLEL_JOBS * N_CORES_JOB,
-    memory_per_core=MEMORY_SINGLE_JOB,
-    days=0,
-    hours=0,
-    minutes=2,
+    joblib_n_jobs=None if JOBLIB_PARALLEL_JOBS == 1 else JOBLIB_PARALLEL_JOBS,
+    # n_cores=JOBLIB_PARALLEL_JOBS * N_CORES_JOB,
+    n_cores=N_CORES,
+    memory_per_core=MEMORY_PER_CORE,
+    days=2,
+    hours=23,
+    minutes=59,
     seconds=0,
     partition=PARTITION,
     conda_env=CONDA_ENV,
