@@ -285,7 +285,7 @@ echo "...done."
                 slurm_files_path_l.append(self.save_slurm(command_line_l,
                                                           str(i).zfill(len(str(len(experiment_list_chunked))))))
 
-            # Launch slurm files
+            # Launch slurm files in parallel
             for slurm_file_path in slurm_files_path_l:
                 command = f"sbatch {slurm_file_path}"
                 if test:

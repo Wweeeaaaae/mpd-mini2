@@ -6,7 +6,7 @@ from experiment_launcher.utils import is_local
 
 LOCAL = is_local()
 LOCAL = False
-TEST = False
+TEST = True
 USE_CUDA = True
 
 N_SEEDS = 3
@@ -29,7 +29,7 @@ launcher = Launcher(
     # project_name='project01234',  # for hrz cluster
     n_exps=N_SEEDS,
     joblib_n_jobs=None,  # If experiments_per_gpu are specified, then joblib does not do anything
-    experiments_per_gpu=5,
+    experiments_per_gpu=3,
     # n_cores=JOBLIB_PARALLEL_JOBS * N_CORES_JOB,
     n_cores=N_CORES,
     memory_per_core=MEMORY_PER_CORE,
