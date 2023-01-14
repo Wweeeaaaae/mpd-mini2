@@ -49,11 +49,19 @@ envs = {
 a_l = [1, 2, 3]
 boolean_param_l = [True, False]
 some_default_param = 'b'
-# These arguments are kwargs in the experiment function
+
+# These arguments are kwargs of the experiment function
 unknown_args_list = [
     dict(integer_arg=10),
     dict(floating_arg=11.0, string_arg='test')
 ]
+
+# Optional arguments for Weights and Biases
+wandb_options = dict(
+    wandb_enabled=False,  # If True, runs wandb. Default is False.
+    wandb_entity='joaocorreiacarvalho',
+    wandb_project='test_experiment_launcher'
+)
 
 for env in envs:
     d = envs[env]
@@ -73,11 +81,9 @@ for env in envs:
                 some_default_param=some_default_param,
 
                 **unknown_args,
+                debug=False,
 
-                # Optional arguments for Weights and Biases
-                wandb_enabled=False,  # If True, runs wandb. It is False by default.
-                wandb_entity='joaocorreiacarvalho',
-                wandb_project='test_experiment_launcher',
+                **wandb_options,
                 wandb_group=f'test_group-el-{env}-{a}-{boolean_param}'
             )
 

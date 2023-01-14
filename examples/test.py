@@ -5,7 +5,6 @@ import wandb
 
 from experiment_launcher import run_experiment
 from experiment_launcher.decorators import single_experiment_yaml
-from experiment_launcher.launcher import add_launcher_base_args, get_experiment_default_params
 
 
 # This decorator is not mandatory.
@@ -19,14 +18,17 @@ def experiment(
     boolean_param: bool = True,
     some_default_param: str = 'b',
 
+    debug: bool = True,
+
     #######################################
     # MANDATORY
     seed: int = 0,
     results_dir: str = 'logs',
-
     **kwargs  # accept unknown arguments
 ):
     # EXPERIMENT
+    print(f'DEBUG MODE: {debug}')
+
     filename = os.path.join(results_dir, 'log_' + str(seed) + '.txt')
     out_str = f'Running experiment with seed {seed}, env {env}, ' \
               f'env_param {env_param}, a {a}, ' \

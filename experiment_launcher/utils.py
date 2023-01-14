@@ -106,6 +106,6 @@ def random_int_with_n_digits(n):
 def create_results_dir(results_dir=None, seed=None, **kwargs):
     assert results_dir is not None and seed is not None, "results_dir and seed must exist"
     results_dir_new = os.path.join(results_dir, str(seed))
-    os.makedirs(results_dir_new)
+    os.makedirs(results_dir_new, exist_ok=True)
     kwargs['results_dir'] = results_dir_new
     return kwargs
