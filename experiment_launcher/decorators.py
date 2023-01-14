@@ -3,39 +3,40 @@ import datetime
 import os
 from functools import wraps, partial
 
-from experiment_launcher.utils import save_args, start_wandb
+from experiment_launcher.utils import save_args, start_wandb, create_results_dir
 
 
-def pseudo_single_experiment(exp_func, save_args_yaml=False, use_wandb=False):
+def wrapper_single_experiment(exp_func, save_args_yaml=False, use_wandb=False):
     @wraps(exp_func)
-    def wrapper(*args, **kwargs):
+    def wrapper(
+        # Weights and Biases
+        wandb_enabled=False,
+        wandb_entity='jaccarvalho',
+        wandb_project='test_el',
+        wandb_group=f'test_group_el',
+        wandb_run_name=None,
+
+        # Function arguments
+        *args,
+        **kwargs
+    ):
         # Make results directory
-        assert 'results_dir' in kwargs and 'seed' in kwargs, "results_dir and seed must be arguments"
-        results_dir = os.path.join(kwargs['results_dir'], str(kwargs['seed']))
-        os.makedirs(results_dir, exist_ok=True)
-        kwargs['results_dir'] = results_dir
+        kwargs = create_results_dir(**kwargs)
 
         # Save arguments
-        save_args(results_dir, kwargs, git_repo_path='./', save_args_yaml=save_args_yaml)
-        print(kwargs)
+        save_args(kwargs['results_dir'], kwargs, git_repo_path='./', save_args_as_yaml=save_args_yaml, verbose=True)
 
         # Start WandB
-        wandb_run = None
-        if use_wandb:
-            wandb_run = start_wandb(**kwargs)
+        wandb_run = start_wandb(wandb_enabled, wandb_entity, wandb_project, wandb_group, wandb_run_name)
 
         # Run the experiment
         exp_func(*args, **kwargs)
 
         # Clean up
-        if use_wandb:
-            wandb_run.finish()
+        wandb_run.finish()
 
     return wrapper
 
 
-single_experiment = partial(pseudo_single_experiment)
-
-single_experiment_yaml = partial(pseudo_single_experiment, save_args_yaml=True)
-
-single_experiment_wandb = partial(pseudo_single_experiment, save_args_yaml=True, use_wandb=True)
+single_experiment_flat = partial(wrapper_single_experiment)
+single_experiment_yaml = partial(wrapper_single_experiment, save_args_yaml=True)

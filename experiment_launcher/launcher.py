@@ -2,6 +2,7 @@ import argparse
 import datetime
 import inspect
 import os
+import time
 import traceback
 from copy import copy, deepcopy
 from distutils.util import strtobool
@@ -10,6 +11,8 @@ from itertools import product
 
 import numpy as np
 from joblib import Parallel, delayed
+
+from experiment_launcher.utils import random_int_with_n_digits
 
 
 class Launcher(object):
@@ -21,13 +24,13 @@ class Launcher(object):
     def __init__(self, exp_name, python_file, n_exps, n_cores=1, memory_per_core=2000,
                  days=0, hours=24, minutes=0, seconds=0,
                  project_name=None, base_dir=None, joblib_n_jobs=None, conda_env=None, gres=None, partition=None,
-                 begin=None, use_timestamp=False, max_seeds=10000):
+                 begin=None, use_timestamp=False, max_seeds=10000, compact_dirs=False):
         """
         Constructor.
 
         Args:
             exp_name (str): name of the experiment
-            python_file (str): prefix of the python file that runs a single experiment
+            python_file (str): name of the python module running a single experiment
             n_exps (int): number of experiments
             n_cores (int): number of cpu cores
             memory_per_core (int): maximum memory per core (slurm will kill the job if this is reached)
@@ -45,6 +48,7 @@ class Launcher(object):
             begin (str): start the slurm experiment at a given time (see --begin in slurm docs)
             use_timestamp (bool): add a timestamp to the experiment name
             max_seeds (int): interval [1, max_seeds-1] of random seeds to sample from
+            compact_dirs (bool): If true, only the parameter name is used for the directory name.
 
         """
         self._exp_name = exp_name
@@ -69,6 +73,9 @@ class Launcher(object):
         base_dir = './logs' if base_dir is None else base_dir
         self._exp_dir_local = os.path.join(base_dir, self._exp_name)
 
+        # tracks the results directories
+        self._results_dir_d = dict()
+
         self._exp_dir_slurm = self._exp_dir_local
         if os.getenv("USER"):
             scratch_dir = os.path.join('/work', 'scratch', os.getenv('USER'))
@@ -79,6 +86,8 @@ class Launcher(object):
             max_seeds = n_exps + 1
             print(f"max_seeds must be larger than the number of experiments. Setting max_seeds to {max_seeds}")
         self._max_seeds = max_seeds
+
+        self._compact_dirs = compact_dirs
 
     def add_experiment(self, **kwargs):
         self._experiment_list.append(deepcopy(kwargs))
@@ -132,9 +141,9 @@ fi
             else:
                 raise Exception('You do not have a /home/USER/miniconda3 or /home/USER/anaconda3 directories')
             execution_code += f'conda activate {self._conda_env}\n\n'
-            execution_code += f'python {self._python_file}.py \\'
+            execution_code += f'python {self._python_file_path} \\'
         else:
-            execution_code += f'python3  {self._python_file}.py \\'
+            execution_code += f'python3  {self._python_file_path} \\'
 
         experiment_args = '\t\t'
         if self._joblib_n_jobs is not None:
@@ -231,6 +240,8 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
             for exp, i in product(self._experiment_list, range(self._n_exps)):
                 results_dir = self._generate_results_dir(self._exp_dir_local, exp)
                 params = str(exp).replace('{', '(').replace('}', '').replace(': ', '=').replace('\'', '')
+                if params:
+                    params += ', '
                 print('experiment' + params + 'seed=' + str(i) + ', results_dir=' + results_dir + ')')
         else:
             def experiment_wrapper(params):
@@ -257,11 +268,13 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
             for exp, i in product(self._experiment_list, range(self._n_exps)):
                 results_dir = self._generate_results_dir(self._exp_dir_local, exp)
                 params = str(exp).replace('{', '(').replace('}', '').replace(': ', '=').replace('\'', '')
+                if params:
+                    params += ', '
                 print('experiment' + params + 'seed=' + str(i) + ', results_dir=' + results_dir + ')')
         else:
-            params_dict = get_experiment_default_params(experiment)
+            default_params_dict = get_experiment_default_params(experiment)
 
-            for params in self._generate_exp_params(params_dict):
+            for params in self._generate_exp_params(default_params_dict):
                 try:
                     experiment(**params)
                 except Exception:
@@ -269,22 +282,36 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
                     print(params)
                     traceback.print_exc()
 
-    @staticmethod
-    def _generate_results_dir(results_dir, exp):
+    def _generate_results_dir(self, results_dir, exp, n=6):
         for key, value in exp.items():
             if key.endswith('_'):
-                subfolder = key + '_' + str(value).replace(' ', '')
+                if self._compact_dirs:
+                    subfolder = str(value)
+                else:
+                    subfolder = key + '_' + str(value).replace(' ', '')
                 results_dir = os.path.join(results_dir, subfolder)
+        if results_dir in self._results_dir_d:
+            # If the same results dir already exists, add a new one incrementally.
+            # This prevents overwriting experiments.
+            counts = self._results_dir_d[results_dir]
+            self._results_dir_d[results_dir] += 1
+            results_dir = os.path.join(results_dir, f'params-{str(counts).zfill(n)}')
+        else:
+            self._results_dir_d[results_dir] = 1
+            results_dir = os.path.join(results_dir, f'params-{n*"0"}')
+
         return results_dir
 
-    def _generate_exp_params(self, params_dict):
+    def _generate_exp_params(self, default_params_dict):
         seeds = np.arange(self._n_exps)
-        for exp, seed in product(self._experiment_list, seeds):
+        for exp in self._experiment_list:
+            params_dict = deepcopy(default_params_dict)
             exp_new_without_underscore = self.remove_last_underscores_dict(exp)
             params_dict.update(exp_new_without_underscore)
-            params_dict['seed'] = int(seed)
             params_dict['results_dir'] = self._generate_results_dir(self._exp_dir_local, exp)
-            yield params_dict
+            for seed in seeds:
+                params_dict['seed'] = int(seed)
+                yield params_dict
 
     @staticmethod
     def remove_last_underscores_dict(exp_dict):
@@ -322,6 +349,17 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
     @property
     def exp_name(self):
         return self._exp_name
+
+    def log_dir(self, local=True):
+        if local:
+            return self._exp_dir_local
+        else:
+            return self._exp_dir_slurm
+
+    @property
+    def _python_file_path(self):
+        module = import_module(self._python_file)
+        return module.__file__
 
 
 def compute_job_array_joblib(n_exps, joblib_n_jobs):
@@ -378,6 +416,38 @@ def add_launcher_base_args(parser):
     return parser
 
 
+def has_kwargs(func):
+    signature = inspect.signature(func)
+    for k, v in signature.parameters.items():
+        if v.kind == v.VAR_KEYWORD:
+            return True
+
+    return False
+
+
+def string_to_primitive(string):
+    try:
+        return int(string)
+    except ValueError:
+        try:
+            return float(string)
+        except ValueError:
+            return string
+
+
+def parse_unknown_args(unknown):
+    kwargs = dict()
+    skip = False
+    for i, arg in enumerate(unknown):
+        if not skip and arg.startswith('--') and i + 1 < len(unknown):
+            kwargs[arg[2:]] = string_to_primitive(unknown[i+1])
+            skip = True
+        else:
+            skip = False
+
+    return kwargs
+
+
 def parse_args(func):
     parser = argparse.ArgumentParser()
 
@@ -385,13 +455,25 @@ def parse_args(func):
 
     parser = add_launcher_base_args(parser)
     parser.set_defaults(**get_experiment_default_params(func))
-    args = parser.parse_args()
-    return vars(args)
+
+    if has_kwargs(func):
+        args, unknown = parser.parse_known_args()
+        kwargs = parse_unknown_args(unknown)
+
+        args = vars(args)
+        args.update(kwargs)
+
+        return args
+    else:
+        args = parser.parse_args()
+        return vars(args)
 
 
 def run_experiment(func, args=None):
+
     if not args:
         args = parse_args(func)
+
     joblib_n_jobs = copy(args['joblib_n_jobs'])
     joblib_n_seeds = copy(args['joblib_n_seeds'])
     initial_seed = copy(args['seed'])
