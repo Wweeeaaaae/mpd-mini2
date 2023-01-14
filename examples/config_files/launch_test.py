@@ -49,7 +49,7 @@ config_files_l = [
 
 # Optional arguments for Weights and Biases
 wandb_options = dict(
-    wandb_enabled=True,  # If True, runs wandb. Default is False.
+    wandb_enabled=False,  # If True, runs wandb. Default is False.
     wandb_entity='joaocorreiacarvalho',
     wandb_project='test_experiment_launcher_config_files'
 )

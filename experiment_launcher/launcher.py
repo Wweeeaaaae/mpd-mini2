@@ -195,7 +195,11 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
 {execution_code}
 {experiment_args}
 \t\t--seed $SLURM_ARRAY_TASK_ID \\
-{result_dir_code} {joblib_code}
+{result_dir_code} {joblib_code} &
+
+echo "Running scripts in parallel..."
+wait # This will wait until both scripts finish
+echo "...done."
 """
         return code
 
