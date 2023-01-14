@@ -77,7 +77,7 @@ for env in envs:
                 wandb_enabled=False,  # If True, runs wandb. It is False by default.
                 wandb_entity='joaocorreiacarvalho',
                 wandb_project='test_experiment_launcher',
-                wandb_group=f'test_group-el-{env}-{a}={boolean_param}'
+                wandb_group=f'test_group-el-{env}-{a}-{boolean_param}'
             )
 
 launcher.run(LOCAL, TEST)
