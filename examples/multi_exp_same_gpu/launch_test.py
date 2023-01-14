@@ -6,10 +6,10 @@ from experiment_launcher.utils import is_local
 
 LOCAL = is_local()
 LOCAL = False
-TEST = False
+TEST = True
 USE_CUDA = True
 
-N_SEEDS = 1
+N_SEEDS = 3
 
 if LOCAL:
     JOBLIB_PARALLEL_JOBS = 5  # os.cpu_count()
@@ -28,7 +28,8 @@ launcher = Launcher(
     python_file='test',
     # project_name='project01234',  # for hrz cluster
     n_exps=N_SEEDS,
-    joblib_n_jobs=None if JOBLIB_PARALLEL_JOBS == 1 else JOBLIB_PARALLEL_JOBS,
+    joblib_n_jobs=None,  # If experiments_per_gpu are specified, then joblib does not do anything
+    experiments_per_gpu=3,
     # n_cores=JOBLIB_PARALLEL_JOBS * N_CORES_JOB,
     n_cores=N_CORES,
     memory_per_core=MEMORY_PER_CORE,
@@ -43,14 +44,24 @@ launcher = Launcher(
     compact_dirs=False
 )
 
-tensor_sizes_l = 6 * [10000]
+tensor_sizes_l = 7 * [10000]
+
+# Optional arguments for Weights and Biases
+wandb_options = dict(
+    wandb_enabled=False,  # If True, runs wandb. Default is False.
+    wandb_entity='joaocorreiacarvalho',
+    wandb_project='test_experiment_launcher_config_files'
+)
 
 for tensor_size in tensor_sizes_l:
     launcher.add_experiment(
         # A subdirectory will be created for parameters with a trailing double underscore.
         tensor_size__=tensor_size,
 
-        debug=False
+        debug=False,
+
+        # **wandb_options,
+        # wandb_group=f'test_group-el-{tensor_size}',
     )
 
 launcher.run(LOCAL, TEST)
