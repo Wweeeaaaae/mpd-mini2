@@ -39,6 +39,7 @@ def experiment(
     end_time = time.time() + 60
     while time.time() < end_time:
         tensor = tensor1 * tensor2
+    print('Finished experiment.')
 
 
 if __name__ == '__main__':
