@@ -7,10 +7,10 @@ LOCAL = bool_local_cluster()
 TEST = False
 USE_CUDA = False
 
-PARTITION = 'amd'  # 'amd', 'rtx', 'test30m' for lichtenberg
-GRES = 'gpu:1' if USE_CUDA else None  # gpu:rtx2080:1, gpu:rtx3080:1
+PARTITION = 'amd'  # 'amd2,amd', 'rtx2,rtx', 'test30m' for lichtenberg
+GRES = 'gpu:1' if USE_CUDA else None  # gpu:rtx2080:1, gpu:rtx3080:1, gpu:rtx3090:1
 
-CONDA_ENV = 'py38'  # None
+CONDA_ENV = 'el'  # None
 
 N_SEEDS = 3
 
