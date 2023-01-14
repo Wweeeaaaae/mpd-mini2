@@ -43,7 +43,4 @@ if __name__ == '__main__':
     # Leave unchanged
     run_experiment(experiment)
 
-    # To use your own parser, run instead.
-    # args = parse_args()
-    # run_experiment(experiment, args)
 

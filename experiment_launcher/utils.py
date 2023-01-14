@@ -47,7 +47,7 @@ def save_args(results_dir, args, git_repo_path=None, seed=None, save_args_as_yam
         print('------------------------------------------------------------------------------------')
 
 
-def bool_local_cluster():
+def is_local():
     clusters_name_list = ['mn01', 'logc']
     hostname = socket.gethostname()
     for cluster_name in clusters_name_list:

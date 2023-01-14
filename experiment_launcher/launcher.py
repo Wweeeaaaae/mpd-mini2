@@ -134,10 +134,10 @@ fi
 """
         execution_code = ''
         if self._conda_env:
-            if os.path.exists('/home/{}/miniconda3'.format(os.getenv('USER'))):
-                execution_code += f'eval \"$(/home/{os.getenv("USER")}/miniconda3/bin/conda shell.bash hook)\"\n'
-            elif os.path.exists(f'/home/{os.getenv("USER")}/anaconda3'):
-                execution_code += f'eval \"$(/home/{os.getenv("USER")}/anaconda/bin/conda shell.bash hook)\"\n'
+            if os.path.exists(f'{os.getenv("HOME")}/miniconda3'):
+                execution_code += f'eval \"$({os.getenv("HOME")}/miniconda3/bin/conda shell.bash hook)\"\n'
+            elif os.path.exists(f'{os.getenv("HOME")}/anaconda3'):
+                execution_code += f'eval \"$({os.getenv("HOME")}/anaconda/bin/conda shell.bash hook)\"\n'
             else:
                 raise Exception('You do not have a /home/USER/miniconda3 or /home/USER/anaconda3 directories')
             execution_code += f'conda activate {self._conda_env}\n\n'
@@ -330,7 +330,7 @@ echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
 
             if isinstance(value, list):
                 raise NotImplementedError
-                new_command += ' '.join(map(str,value)) + ' ' 
+                new_command += ' '.join(map(str, value)) + ' '
             else:
                 new_command += str(value) + ' '
 
@@ -432,7 +432,11 @@ def string_to_primitive(string):
         try:
             return float(string)
         except ValueError:
-            return string
+            try:
+                # boolean
+                return bool(strtobool(string))
+            except ValueError:
+                return string
 
 
 def parse_unknown_args(unknown):
@@ -489,5 +493,7 @@ def run_experiment(func, args=None):
             params_dict['seed'] = int(seed)
             yield params_dict
 
+    # Execute jobs in parallel.
+    # To keep the interface, we use joblib even if only one job can run at a time.
     Parallel(n_jobs=joblib_n_jobs)(delayed(func)(**params)
                                    for params in generate_joblib_seeds(args))

@@ -1,9 +1,10 @@
+import os
 from itertools import product
 
 from experiment_launcher import Launcher
-from experiment_launcher.utils import bool_local_cluster
+from experiment_launcher.utils import is_local
 
-LOCAL = bool_local_cluster()
+LOCAL = is_local()
 TEST = False
 USE_CUDA = False
 
@@ -63,7 +64,7 @@ for env in envs:
                 env__=env,
                 a__=a,
                 # boolean_param is changing, but we forgot to add the trailing underscores.
-                # The launcher adds a random number to the results directory to prevent overwriting previous experiments.
+                # The launcher adds a folder to the results directory to prevent overwriting previous experiments.
                 boolean_param=boolean_param,
 
                 env='some_env',  # This value will be overwritten by env__

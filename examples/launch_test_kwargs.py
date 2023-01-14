@@ -1,9 +1,9 @@
 from itertools import product
 
 from experiment_launcher import Launcher
-from experiment_launcher.utils import bool_local_cluster
+from experiment_launcher.utils import is_local
 
-LOCAL = bool_local_cluster()
+LOCAL = is_local()
 TEST = False
 USE_CUDA = False
 
