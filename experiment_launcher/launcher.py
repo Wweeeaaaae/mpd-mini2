@@ -353,6 +353,7 @@ echo "...done."
                     subfolder = str(value)
                 else:
                     subfolder = key + '_' + str(value).replace(' ', '')
+                subfolder = subfolder.replace('/', '-')  # avoids creating subfolders if there is a slash in the name
                 results_dir = os.path.join(results_dir, subfolder)
         if results_dir in self._results_dir_d:
             # If the same results dir already exists, add a new one incrementally.
