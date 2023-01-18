@@ -6,5 +6,5 @@ class ResultsDirException(Exception):
         message = f"\n" \
                   f"When trying to add the experiment: {exp}\n" \
                   f"Results directory {results_dir} already exists.\n" \
-                  f"Make sure that varying parameters have a training double underscore."
+                  f"Make sure that varying parameters have a trailing double underscore."
         super().__init__(message)
