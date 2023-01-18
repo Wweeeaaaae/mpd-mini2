@@ -5,7 +5,7 @@ from experiment_launcher import Launcher
 from experiment_launcher.utils import is_local
 
 LOCAL = is_local()
-TEST = False
+TEST = True
 USE_CUDA = True
 
 N_SEEDS = 3
@@ -43,7 +43,7 @@ launcher = Launcher(
     compact_dirs=False
 )
 
-tensor_sizes_l = 5 * [1000000]
+tensor_sizes_l = [1000000 + i for i in range(5)]
 
 # Optional arguments for Weights and Biases
 wandb_options = dict(

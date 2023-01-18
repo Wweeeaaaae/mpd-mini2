@@ -5,7 +5,7 @@ from experiment_launcher import Launcher
 from experiment_launcher.utils import is_local
 
 LOCAL = is_local()
-TEST = False
+TEST = True
 USE_CUDA = False
 
 N_SEEDS = 3
@@ -39,7 +39,7 @@ launcher = Launcher(
     conda_env=CONDA_ENV,
     gres=GRES,
     use_timestamp=True,
-    compact_dirs=True
+    compact_dirs=False
 )
 
 envs = {
@@ -53,7 +53,7 @@ some_default_param = 'b'
 # These arguments are kwargs of the experiment function
 unknown_args_list = [
     dict(integer_arg=10),
-    dict(floating_arg=11.0, string_arg='test')
+    # dict(floating_arg=11.0, string_arg='test')
 ]
 
 # Optional arguments for Weights and Biases
@@ -71,9 +71,7 @@ for env in envs:
                 # A subdirectory will be created for parameters with a trailing double underscore.
                 env__=env,
                 a__=a,
-                # boolean_param is changing, but we forgot to add the trailing underscores.
-                # The launcher adds a folder to the results directory to prevent overwriting previous experiments.
-                boolean_param=boolean_param,
+                boolean_param__=boolean_param,
 
                 env='some_env',  # This value will be overwritten by env__
 

@@ -5,7 +5,7 @@ from experiment_launcher import Launcher
 from experiment_launcher.utils import is_local
 
 LOCAL = is_local()
-TEST = False
+TEST = True
 USE_CUDA = False
 
 N_SEEDS = 3

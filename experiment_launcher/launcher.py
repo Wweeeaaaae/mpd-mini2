@@ -2,18 +2,15 @@ import argparse
 import datetime
 import inspect
 import os
-import time
 import traceback
 from copy import copy, deepcopy
 from distutils.util import strtobool
 from importlib import import_module
-from itertools import product
-from math import ceil
 
 import numpy as np
 from joblib import Parallel, delayed
 
-from experiment_launcher.utils import random_int_with_n_digits
+from experiment_launcher.exceptions import ResultsDirException
 
 
 class Launcher(object):
@@ -83,7 +80,7 @@ class Launcher(object):
         self._exp_dir_local = os.path.join(base_dir, self._exp_name)
 
         # tracks the results directories
-        self._results_dir_d = dict()
+        self._results_dir_l = []
 
         self._exp_dir_slurm = self._exp_dir_local
         if os.getenv("USER"):
@@ -102,6 +99,7 @@ class Launcher(object):
         self._experiment_list.append(deepcopy(kwargs))
 
     def run(self, local, test=False, sequential=False):
+        self._check_experiments_results_directories()
         if local:
             if sequential:
                 self._run_sequential(test)
@@ -301,12 +299,7 @@ echo "...done."
         experiment = module.experiment
 
         if test:
-            for exp, i in product(self._experiment_list, range(self._n_exps)):
-                results_dir = self._generate_results_dir(self._exp_dir_local, exp)
-                params = str(exp).replace('{', '(').replace('}', '').replace(': ', '=').replace('\'', '')
-                if params:
-                    params += ', '
-                print('experiment' + params + 'seed=' + str(i) + ', results_dir=' + results_dir + ')')
+            self._test_experiment_local()
         else:
             def experiment_wrapper(params):
                 try:
@@ -329,12 +322,7 @@ echo "...done."
         experiment = module.experiment
 
         if test:
-            for exp, i in product(self._experiment_list, range(self._n_exps)):
-                results_dir = self._generate_results_dir(self._exp_dir_local, exp)
-                params = str(exp).replace('{', '(').replace('}', '').replace(': ', '=').replace('\'', '')
-                if params:
-                    params += ', '
-                print('experiment' + params + 'seed=' + str(i) + ', results_dir=' + results_dir + ')')
+            self._test_experiment_local()
         else:
             default_params_dict = get_experiment_default_params(experiment)
 
@@ -346,25 +334,35 @@ echo "...done."
                     print(params)
                     traceback.print_exc()
 
+    def _check_experiments_results_directories(self):
+        """
+        Check if the results directory produced for each experiment clash.
+        """
+        for exp in self._experiment_list:
+            results_dir = self._generate_results_dir(self._exp_dir_local, exp)
+            # Check if the results directory already exists.
+            if results_dir in self._results_dir_l:
+                # Terminate to prevent overwriting the results directory.
+                raise ResultsDirException(exp, results_dir)
+            self._results_dir_l.append(results_dir)
+
+    def _test_experiment_local(self):
+        for exp, results_dir in zip(self._experiment_list, self._results_dir_l):
+            for i in range(self._n_exps):
+                params = str(exp).replace('{', '(').replace('}', '').replace(': ', '=').replace('\'', '')
+                if params:
+                    params += ', '
+                print('experiment' + params + 'seed=' + str(i) + ', results_dir=' + results_dir + ')')
+
     def _generate_results_dir(self, results_dir, exp, n=6):
         for key, value in exp.items():
-            if key.endswith('_'):
+            if key.endswith('__'):
                 if self._compact_dirs:
                     subfolder = str(value)
                 else:
                     subfolder = key + '_' + str(value).replace(' ', '')
                 subfolder = subfolder.replace('/', '-')  # avoids creating subfolders if there is a slash in the name
                 results_dir = os.path.join(results_dir, subfolder)
-        if results_dir in self._results_dir_d:
-            # If the same results dir already exists, add a new one incrementally.
-            # This prevents overwriting experiments.
-            counts = self._results_dir_d[results_dir]
-            self._results_dir_d[results_dir] += 1
-            results_dir = os.path.join(results_dir, f'params-{str(counts).zfill(n)}')
-        else:
-            self._results_dir_d[results_dir] = 1
-            results_dir = os.path.join(results_dir, f'params-{n*"0"}')
-
         return results_dir
 
     def _generate_exp_params(self, default_params_dict):
