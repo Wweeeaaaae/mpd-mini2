@@ -11,7 +11,7 @@ USE_CUDA = True
 N_SEEDS = 10
 
 if LOCAL:
-    N_EXPS_IN_PARALLEL = 2  # os.cpu_count()
+    N_EXPS_IN_PARALLEL = 2
 else:
     N_EXPS_IN_PARALLEL = 3
 
