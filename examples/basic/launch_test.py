@@ -5,17 +5,17 @@ from experiment_launcher import Launcher
 from experiment_launcher.utils import is_local
 
 LOCAL = is_local()
-TEST = True
+TEST = False
 USE_CUDA = False
 
 N_SEEDS = 3
 
 if LOCAL:
-    JOBLIB_PARALLEL_JOBS = 5  # os.cpu_count()
+    N_EXPS_IN_PARALLEL = 5  # os.cpu_count()
 else:
-    JOBLIB_PARALLEL_JOBS = 1
+    N_EXPS_IN_PARALLEL = 3
 
-N_CORES = 1
+N_CORES = N_EXPS_IN_PARALLEL
 MEMORY_SINGLE_JOB = 1000
 MEMORY_PER_CORE = MEMORY_SINGLE_JOB // N_CORES
 PARTITION = 'amd2,amd'  # 'amd', 'rtx'
@@ -27,8 +27,7 @@ launcher = Launcher(
     python_file='test',
     # project_name='project01234',  # for hrz cluster
     n_exps=N_SEEDS,
-    joblib_n_jobs=None if JOBLIB_PARALLEL_JOBS == 1 else JOBLIB_PARALLEL_JOBS,
-    # n_cores=JOBLIB_PARALLEL_JOBS * N_CORES_JOB,
+    n_exps_in_parallel=N_EXPS_IN_PARALLEL,
     n_cores=N_CORES,
     memory_per_core=MEMORY_PER_CORE,
     days=2,

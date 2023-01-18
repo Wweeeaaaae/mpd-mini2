@@ -5,17 +5,17 @@ from experiment_launcher import Launcher
 from experiment_launcher.utils import is_local
 
 LOCAL = is_local()
-TEST = True
+TEST = False
 USE_CUDA = True
 
-N_SEEDS = 3
+N_SEEDS = 10
 
 if LOCAL:
-    JOBLIB_PARALLEL_JOBS = 5  # os.cpu_count()
+    N_EXPS_IN_PARALLEL = 2  # os.cpu_count()
 else:
-    JOBLIB_PARALLEL_JOBS = 1
+    N_EXPS_IN_PARALLEL = 3
 
-N_CORES = 1
+N_CORES = N_EXPS_IN_PARALLEL
 MEMORY_SINGLE_JOB = 1000
 MEMORY_PER_CORE = MEMORY_SINGLE_JOB // N_CORES
 PARTITION = 'rtx2,rtx' if USE_CUDA else 'amd2,amd'
@@ -27,9 +27,7 @@ launcher = Launcher(
     python_file='test',
     # project_name='project01234',  # for hrz cluster
     n_exps=N_SEEDS,
-    joblib_n_jobs=None,  # If experiments_per_gpu are specified, then joblib does not do anything
-    experiments_per_gpu=3,
-    # n_cores=JOBLIB_PARALLEL_JOBS * N_CORES_JOB,
+    n_exps_in_parallel=N_EXPS_IN_PARALLEL,
     n_cores=N_CORES,
     memory_per_core=MEMORY_PER_CORE,
     days=2,
@@ -59,8 +57,8 @@ for tensor_size in tensor_sizes_l:
 
         debug=False,
 
-        # **wandb_options,
-        # wandb_group=f'test_group-el-{tensor_size}',
+        **wandb_options,
+        wandb_group=f'test_group-el-{tensor_size}',
     )
 
 launcher.run(LOCAL, TEST)

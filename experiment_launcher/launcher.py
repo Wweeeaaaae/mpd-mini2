@@ -22,8 +22,7 @@ class Launcher(object):
     def __init__(self, exp_name, python_file, n_exps, n_cores=1, memory_per_core=2000,
                  days=0, hours=24, minutes=0, seconds=0,
                  project_name=None, base_dir=None,
-                 joblib_n_jobs=None,
-                 experiments_per_gpu=None,
+                 n_exps_in_parallel=1,
                  conda_env=None, gres=None, partition=None,
                  begin=None, use_timestamp=False, max_seeds=10000, compact_dirs=False):
         """
@@ -42,9 +41,9 @@ class Launcher(object):
             project_name (str): name of the project for slurm. This is important if you have
                 different projects (e.g. in the hhlr cluster)
             base_dir (str): path to directory to save the results (in hhlr results are saved to /work/scratch/$USER)
-            joblib_n_jobs (int or None): number of parallel jobs in Joblib
-            experiments_per_gpu (int or None): number of parallel experiment configurations to run in each allocated
-                gpu (slurm only)
+            n_exps_in_parallel (int): number of experiment configurations to run in parallel.
+                If running in the cluster, and the gpu is selected, then it is the number of jobs in each slurm file
+                (e.g. for multiple experiments in the same gpu)
             conda_env (str): name of the conda environment to run the experiments in
             gres (str): request cluster resources. E.g. to add a GPU in the IAS cluster specify gres='gpu:rtx2080:1'
             partition (str): the partition to use in case of slurm execution. If None, no partition is specified.
@@ -61,11 +60,7 @@ class Launcher(object):
         self._memory_per_core = memory_per_core
         self._duration = Launcher._to_duration(days, hours, minutes, seconds)
         self._project_name = project_name
-        assert joblib_n_jobs is None or experiments_per_gpu is None, "joblib_n_jobs OR experiments_per_gpu must be None"
-        assert (joblib_n_jobs is None or joblib_n_jobs > 0), "joblib_n_jobs must be None or > 0"
-        self._joblib_n_jobs = joblib_n_jobs
-        assert (experiments_per_gpu is None or experiments_per_gpu > 0), "experiments_per_gpu must be None or > 0"
-        self._experiments_per_gpu = experiments_per_gpu if experiments_per_gpu is not None else 1
+        self._n_exps_in_parallel = n_exps_in_parallel
         self._conda_env = conda_env
         self._gres = gres
         self._partition = partition
@@ -87,6 +82,13 @@ class Launcher(object):
             scratch_dir = os.path.join('/work', 'scratch', os.getenv('USER'))
             if os.path.isdir(scratch_dir):
                 self._exp_dir_slurm = os.path.join(scratch_dir, self._exp_name)
+        os.makedirs(self._exp_dir_slurm)
+
+        # directories for slurm sbatch files and logs
+        self._exp_dir_slurm_files = os.path.join(self._exp_dir_slurm, "slurm_files")
+        os.makedirs(self._exp_dir_slurm_files)
+        self._exp_dir_slurm_logs = os.path.join(self._exp_dir_slurm, "slurm_logs")
+        os.makedirs(self._exp_dir_slurm_logs)
 
         if n_exps >= max_seeds:
             max_seeds = n_exps + 1
@@ -104,7 +106,7 @@ class Launcher(object):
             if sequential:
                 self._run_sequential(test)
             else:
-                self._run_joblib(test)
+                self._run_local(test)
         else:
             self._run_slurm(test)
 
@@ -126,19 +128,6 @@ class Launcher(object):
             print(self._gres)
             gres_option += '#SBATCH --gres=' + str(self._gres) + '\n'
 
-        joblib_seed = ''
-        if self._joblib_n_jobs is not None:
-            joblib_seed = f"""\
-# Joblib seed
-aux=$(( $SLURM_ARRAY_TASK_ID + 1 ))
-aux=$(( $aux * $3 ))
-if (( $aux <= $2 ))
-then
-  JOBLIB_SEEDS=$3
-else
-  JOBLIB_SEEDS=$(( $2 % $3 ))
-fi
-"""
         conda_code = ''
         if self._conda_env:
             if os.path.exists(f'{os.getenv("HOME")}/miniconda3'):
@@ -153,27 +142,10 @@ fi
             python_code = f'python3  {self._python_file_path} \\'
 
         experiment_args = '\t\t'
-        if self._joblib_n_jobs is not None:
-            experiment_args += r'${@: 4}'
-        else:
-            experiment_args += r'${@: 2}'
+        experiment_args += r'${@: 2}'
         experiment_args += ' \\'
 
         result_dir_code = '\t\t--results_dir $1'
-
-        joblib_code = ''
-        if self._joblib_n_jobs is not None:
-            joblib_code = f'\\\n\t\t--joblib_n_jobs $3  '
-            N_EXPS = self._n_exps
-            N_JOBS = self._joblib_n_jobs
-            if N_EXPS < N_JOBS:
-                joblib_code += f'--joblib_n_seeds $2 '
-            elif N_EXPS % N_JOBS == 0:
-                joblib_code += f'--joblib_n_seeds $3 '
-            elif N_EXPS % N_JOBS != 0:
-                joblib_code += '--joblib_n_seeds ${JOBLIB_SEEDS} '
-            else:
-                raise NotImplementedError
 
         code = f"""\
 #!/usr/bin/env bash
@@ -185,41 +157,31 @@ fi
 {project_name_option}{partition_option}{begin_option}{gres_option}
 # Mandatory parameters
 #SBATCH -J {self._exp_name}
-#SBATCH -a 0-{compute_job_array_joblib(self._n_exps, self._joblib_n_jobs)}
+#SBATCH -a 0-{self._n_exps}
 #SBATCH -t {self._duration}
 #SBATCH --ntasks 1
 #SBATCH --cpus-per-task {self._n_cores}
 #SBATCH --mem-per-cpu={self._memory_per_core}
-#SBATCH -o {self._exp_dir_slurm}/%A_%a.out
-#SBATCH -e {self._exp_dir_slurm}/%A_%a.err
+#SBATCH -o {self._exp_dir_slurm_logs}/%A_%a.out
+#SBATCH -e {self._exp_dir_slurm_logs}/%A_%a.err
 
 ###############################################################################
 # Your PROGRAM call starts here
 echo "Starting Job $SLURM_JOB_ID, Index $SLURM_ARRAY_TASK_ID"
 
-{joblib_seed}
 # Program specific arguments
 {conda_code}
 
 """
-
-        if command_line_list is None:
-            code += f"""\
-{python_code}
-{experiment_args}
-\t\t--seed $SLURM_ARRAY_TASK_ID \\
-{result_dir_code} {joblib_code}
-"""
-        else:
-            code += f"""\
+        code += f"""\
 # Program specific arguments
 
 echo "Running scripts in parallel..."
 echo "########################################################################"
             
 """
-            for command_line in command_line_list:
-                code += f"""\
+        for command_line in command_line_list:
+            code += f"""\
                 
 {python_code}
 \t\t--seed $SLURM_ARRAY_TASK_ID \\
@@ -227,7 +189,7 @@ echo "########################################################################"
 
 """
 
-            code += f"""\
+        code += f"""\
             
 wait # This will wait until both scripts finish
 echo "########################################################################"
@@ -238,10 +200,9 @@ echo "...done."
     def save_slurm(self, command_line_list=None, idx: str = None):
         code = self.generate_slurm(command_line_list)
 
-        os.makedirs(self._exp_dir_slurm, exist_ok=True)
         label = f"_{idx}" if idx is not None else ""
         script_name = f'slurm_{self._exp_name}{label}.sh'
-        full_path = os.path.join(self._exp_dir_slurm, script_name)
+        full_path = os.path.join(self._exp_dir_slurm_files, script_name)
 
         with open(full_path, "w") as file:
             file.write(code)
@@ -249,49 +210,31 @@ echo "...done."
         return full_path
 
     def _run_slurm(self, test):
-        if self._experiments_per_gpu is None:
-            full_path = self.save_slurm()
+        # Generate and save slurm files
+        slurm_files_path_l = []
+        experiment_list_chunked = []
+        for i in range(0, len(self._experiment_list), self._n_exps_in_parallel):
+            experiment_list_chunked.append(self._experiment_list[i:i + self._n_exps_in_parallel])
 
-            for exp in self._experiment_list:
+        for i, exps in enumerate(experiment_list_chunked):
+            command_line_l = []
+            for exp in exps:
                 exp_new_without_underscore = self.remove_last_underscores_dict(exp)
                 command_line_arguments = self._convert_to_command_line(exp_new_without_underscore)
                 results_dir = self._generate_results_dir(self._exp_dir_slurm, exp)
+                command_line_l.append(f'--results_dir {results_dir} {command_line_arguments}')
+            slurm_files_path_l.append(self.save_slurm(command_line_l,
+                                                      str(i).zfill(len(str(len(experiment_list_chunked))))))
 
-                command = "sbatch " + full_path + ' ' + results_dir
-                if self._joblib_n_jobs is not None:
-                    command += ' ' + str(self._n_exps) + ' ' + str(self._joblib_n_jobs)
-                command += ' ' + command_line_arguments
+        # Launch slurm files in parallel
+        for slurm_file_path in slurm_files_path_l:
+            command = f"sbatch {slurm_file_path}"
+            if test:
+                print(command)
+            else:
+                os.system(command)
 
-                if test:
-                    print(command)
-                else:
-                    os.system(command)
-        else:
-            # Generate and save slurm files
-            slurm_files_path_l = []
-            experiment_list_chunked = []
-            for i in range(0, len(self._experiment_list), self._experiments_per_gpu):
-                experiment_list_chunked.append(self._experiment_list[i:i + self._experiments_per_gpu])
-
-            for i, exps in enumerate(experiment_list_chunked):
-                command_line_l = []
-                for exp in exps:
-                    exp_new_without_underscore = self.remove_last_underscores_dict(exp)
-                    command_line_arguments = self._convert_to_command_line(exp_new_without_underscore)
-                    results_dir = self._generate_results_dir(self._exp_dir_slurm, exp)
-                    command_line_l.append(f'--results_dir {results_dir} {command_line_arguments}')
-                slurm_files_path_l.append(self.save_slurm(command_line_l,
-                                                          str(i).zfill(len(str(len(experiment_list_chunked))))))
-
-            # Launch slurm files in parallel
-            for slurm_file_path in slurm_files_path_l:
-                command = f"sbatch {slurm_file_path}"
-                if test:
-                    print(command)
-                else:
-                    os.system(command)
-
-    def _run_joblib(self, test):
+    def _run_local(self, test):
         if not test:
             os.makedirs(self._exp_dir_local, exist_ok=True)
 
@@ -311,8 +254,8 @@ echo "...done."
 
             params_dict = get_experiment_default_params(experiment)
 
-            Parallel(n_jobs=self._joblib_n_jobs)(delayed(experiment_wrapper)(deepcopy(params))
-                                                 for params in self._generate_exp_params(params_dict))
+            Parallel(n_jobs=self._n_exps_in_parallel)(delayed(experiment_wrapper)(deepcopy(params))
+                                                      for params in self._generate_exp_params(params_dict))
 
     def _run_sequential(self, test):
         if not test:
@@ -428,16 +371,6 @@ echo "...done."
         return module.__file__
 
 
-def compute_job_array_joblib(n_exps, joblib_n_jobs):
-    if joblib_n_jobs is None:
-        return n_exps - 1
-    else:
-        if n_exps % joblib_n_jobs == 0:
-            return n_exps // joblib_n_jobs - 1
-        else:
-            return n_exps // joblib_n_jobs
-
-
 def get_experiment_default_params(func):
     signature = inspect.signature(func)
     defaults = {}
@@ -477,8 +410,6 @@ def add_launcher_base_args(parser):
     arg_default = parser.add_argument_group('Default')
     arg_default.add_argument('--seed', type=int)
     arg_default.add_argument('--results_dir', type=str)
-    arg_default.add_argument('--joblib_n_jobs', type=int)
-    arg_default.add_argument('--joblib_n_seeds', type=int)
     return parser
 
 
@@ -544,22 +475,4 @@ def run_experiment(func, args=None):
     if not args:
         args = parse_args(func)
 
-    joblib_n_jobs = copy(args['joblib_n_jobs'])
-    joblib_n_seeds = copy(args['joblib_n_seeds'])
-    initial_seed = copy(args['seed'])
-    if joblib_n_jobs is not None:
-        initial_seed *= joblib_n_jobs
-    del args['joblib_n_jobs']
-    del args['joblib_n_seeds']
-
-    def generate_joblib_seeds(params_dict):
-        final_seed = initial_seed + (1 if joblib_n_seeds is None else joblib_n_seeds)
-        seeds = np.arange(initial_seed, final_seed, dtype=int)
-        for seed in seeds:
-            params_dict['seed'] = int(seed)
-            yield params_dict
-
-    # Execute jobs in parallel.
-    # To keep the interface, we use joblib even if only one job can run at a time.
-    Parallel(n_jobs=joblib_n_jobs)(delayed(func)(**params)
-                                   for params in generate_joblib_seeds(args))
+    func(**args)

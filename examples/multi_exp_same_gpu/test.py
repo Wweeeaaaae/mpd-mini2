@@ -36,7 +36,7 @@ def experiment(
 
     wandb.log({'seed': seed}, step=1)
 
-    end_time = time.time() + 60
+    end_time = time.time() + 10
     while time.time() < end_time:
         tensor = tensor1 * tensor2
     print('Finished experiment.')

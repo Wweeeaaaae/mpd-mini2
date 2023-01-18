@@ -4,12 +4,12 @@ import os
 import wandb
 
 from experiment_launcher import run_experiment
-from experiment_launcher.decorators import single_experiment_yaml
+from experiment_launcher.decorators import single_experiment_yaml, single_experiment_flat
 
 
 # This decorator is not mandatory.
 # It creates results_dir as results_dir/seed, and saves the experiment arguments into a file.
-@single_experiment_yaml
+@single_experiment_flat
 def experiment(
     #######################################
     env: str = 'env',  # You need to specify the argument type if you use the automatic parser.
