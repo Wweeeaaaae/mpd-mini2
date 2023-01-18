@@ -157,7 +157,7 @@ class Launcher(object):
 {project_name_option}{partition_option}{begin_option}{gres_option}
 # Mandatory parameters
 #SBATCH -J {self._exp_name}
-#SBATCH -a 0-{self._n_exps}
+#SBATCH -a 0-{self._n_exps-1}
 #SBATCH -t {self._duration}
 #SBATCH --ntasks 1
 #SBATCH --cpus-per-task {self._n_cores}
