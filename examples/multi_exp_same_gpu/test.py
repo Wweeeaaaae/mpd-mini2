@@ -1,17 +1,14 @@
-import argparse
-import os
 import time
 
 import torch.cuda
 import wandb
 
-from experiment_launcher import run_experiment
-from experiment_launcher.decorators import single_experiment_yaml
+from experiment_launcher import run_experiment, single_experiment_wandb
 
 
 # This decorator is not mandatory.
 # It creates results_dir as results_dir/seed, and saves the experiment arguments into a file.
-@single_experiment_yaml
+@single_experiment_wandb
 def experiment(
     #######################################
     env: str = 'env-name',  # You need to specify the argument type if you use the automatic parser.
@@ -45,5 +42,3 @@ def experiment(
 if __name__ == '__main__':
     # Leave unchanged
     run_experiment(experiment)
-
-

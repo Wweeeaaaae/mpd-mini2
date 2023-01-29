@@ -41,5 +41,5 @@ def wrapper_single_experiment(exp_func, save_args_yaml=False, use_logging=False)
     return wrapper
 
 
-single_experiment_flat = partial(wrapper_single_experiment)
-single_experiment_yaml = partial(wrapper_single_experiment, save_args_yaml=True, use_logging=True)
+single_experiment = partial(wrapper_single_experiment)
+single_experiment_wandb = partial(wrapper_single_experiment, save_args_yaml=True, use_logging=True)

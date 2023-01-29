@@ -1,8 +1,6 @@
-import os
 from itertools import product
 
-from experiment_launcher import Launcher
-from experiment_launcher.utils import is_local
+from experiment_launcher import Launcher, is_local
 
 LOCAL = is_local()
 TEST = False
@@ -17,16 +15,16 @@ else:
 
 N_CORES = N_EXPS_IN_PARALLEL
 MEMORY_SINGLE_JOB = 1000
-MEMORY_PER_CORE = MEMORY_SINGLE_JOB // N_CORES
+MEMORY_PER_CORE = N_EXPS_IN_PARALLEL * MEMORY_SINGLE_JOB // N_CORES
 PARTITION = 'amd2,amd'  # 'amd', 'rtx'
 GRES = 'gpu:1' if USE_CUDA else None  # gpu:rtx2080:1, gpu:rtx3080:1
 CONDA_ENV = 'el'  # None
 
 launcher = Launcher(
     exp_name='test_launcher',
-    python_file='test',
+    exp_file='test',
     # project_name='project01234',  # for hrz cluster
-    n_exps=N_SEEDS,
+    n_seeds=N_SEEDS,
     n_exps_in_parallel=N_EXPS_IN_PARALLEL,
     n_cores=N_CORES,
     memory_per_core=MEMORY_PER_CORE,
@@ -35,8 +33,8 @@ launcher = Launcher(
     minutes=59,
     seconds=0,
     partition=PARTITION,
-    conda_env=CONDA_ENV,
     gres=GRES,
+    conda_env=CONDA_ENV,
     use_timestamp=True,
     compact_dirs=False
 )
@@ -55,13 +53,6 @@ unknown_args_list = [
     # dict(floating_arg=11.0, string_arg='test')
 ]
 
-# Optional arguments for Weights and Biases
-wandb_options = dict(
-    wandb_enabled=False,  # If True, runs wandb. Default is False.
-    wandb_entity='joaocorreiacarvalho',
-    wandb_project='test_experiment_launcher'
-)
-
 for env in envs:
     d = envs[env]
     for a, boolean_param in product(a_l, boolean_param_l):
@@ -79,9 +70,6 @@ for env in envs:
 
                 **unknown_args,
                 debug=False,
-
-                **wandb_options,
-                wandb_group=f'test_group-el-{env}-{a}-{boolean_param}'
             )
 
 launcher.run(LOCAL, TEST)

@@ -19,19 +19,19 @@ class Launcher(object):
 
     """
 
-    def __init__(self, exp_name, python_file, n_exps, n_cores=1, memory_per_core=2000,
+    def __init__(self, exp_name, exp_file, n_seeds, n_cores=1, memory_per_core=2000,
                  days=0, hours=24, minutes=0, seconds=0,
                  project_name=None, base_dir=None,
                  n_exps_in_parallel=1,
                  conda_env=None, gres=None, partition=None,
-                 begin=None, use_timestamp=False, max_seeds=10000, compact_dirs=False):
+                 begin=None, use_timestamp=True, compact_dirs=False):
         """
         Constructor.
 
         Args:
             exp_name (str): name of the experiment
-            python_file (str): name of the python module running a single experiment
-            n_exps (int): number of experiments
+            exp_file (str): name of the python module running a single experiment (relative path)
+            n_seeds (int): number of seeds for each experiment configuration
             n_cores (int): number of cpu cores
             memory_per_core (int): maximum memory per core (slurm will kill the job if this is reached)
             days (int): number of days the experiment can last (in slurm)
@@ -49,13 +49,12 @@ class Launcher(object):
             partition (str): the partition to use in case of slurm execution. If None, no partition is specified.
             begin (str): start the slurm experiment at a given time (see --begin in slurm docs)
             use_timestamp (bool): add a timestamp to the experiment name
-            max_seeds (int): interval [1, max_seeds-1] of random seeds to sample from
-            compact_dirs (bool): If true, only the parameter name is used for the directory name.
+            compact_dirs (bool): If true, only the parameter value is used for the directory name.
 
         """
         self._exp_name = exp_name
-        self._python_file = python_file
-        self._n_exps = n_exps
+        self._exp_file = exp_file
+        self._n_seeds = n_seeds
         self._n_cores = n_cores
         self._memory_per_core = memory_per_core
         self._duration = Launcher._to_duration(days, hours, minutes, seconds)
@@ -89,11 +88,6 @@ class Launcher(object):
         os.makedirs(self._exp_dir_slurm_files)
         self._exp_dir_slurm_logs = os.path.join(self._exp_dir_slurm, "slurm_logs")
         os.makedirs(self._exp_dir_slurm_logs)
-
-        if n_exps >= max_seeds:
-            max_seeds = n_exps + 1
-            print(f"max_seeds must be larger than the number of experiments. Setting max_seeds to {max_seeds}")
-        self._max_seeds = max_seeds
 
         self._compact_dirs = compact_dirs
 
@@ -137,9 +131,9 @@ class Launcher(object):
             else:
                 raise Exception('You do not have a /home/USER/miniconda3 or /home/USER/anaconda3 directories')
             conda_code += f'conda activate {self._conda_env}\n\n'
-            python_code = f'python {self._python_file_path} \\'
+            python_code = f'python {self._exp_file_path} \\'
         else:
-            python_code = f'python3  {self._python_file_path} \\'
+            python_code = f'python3  {self._exp_file_path} \\'
 
         experiment_args = '\t\t'
         experiment_args += r'${@: 2}'
@@ -157,7 +151,7 @@ class Launcher(object):
 {project_name_option}{partition_option}{begin_option}{gres_option}
 # Mandatory parameters
 #SBATCH -J {self._exp_name}
-#SBATCH -a 0-{self._n_exps-1}
+#SBATCH -a 0-{self._n_seeds-1}
 #SBATCH -t {self._duration}
 #SBATCH --ntasks 1
 #SBATCH --cpus-per-task {self._n_cores}
@@ -238,7 +232,7 @@ echo "...done."
         if not test:
             os.makedirs(self._exp_dir_local, exist_ok=True)
 
-        module = import_module(self._python_file)
+        module = import_module(self._exp_file)
         experiment = module.experiment
 
         if test:
@@ -261,7 +255,7 @@ echo "...done."
         if not test:
             os.makedirs(self._exp_dir_local, exist_ok=True)
 
-        module = import_module(self._python_file)
+        module = import_module(self._exp_file)
         experiment = module.experiment
 
         if test:
@@ -291,7 +285,7 @@ echo "...done."
 
     def _test_experiment_local(self):
         for exp, results_dir in zip(self._experiment_list, self._results_dir_l):
-            for i in range(self._n_exps):
+            for i in range(self._n_seeds):
                 params = str(exp).replace('{', '(').replace('}', '').replace(': ', '=').replace('\'', '')
                 if params:
                     params += ', '
@@ -309,7 +303,7 @@ echo "...done."
         return results_dir
 
     def _generate_exp_params(self, default_params_dict):
-        seeds = np.arange(self._n_exps)
+        seeds = np.arange(self._n_seeds)
         for exp in self._experiment_list:
             params_dict = deepcopy(default_params_dict)
             exp_new_without_underscore = self.remove_last_underscores_dict(exp)
@@ -366,8 +360,8 @@ echo "...done."
             return self._exp_dir_slurm
 
     @property
-    def _python_file_path(self):
-        module = import_module(self._python_file)
+    def _exp_file_path(self):
+        module = import_module(self._exp_file)
         return module.__file__
 
 
