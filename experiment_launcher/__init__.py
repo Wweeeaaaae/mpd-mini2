@@ -5,4 +5,4 @@ try:
 except ImportError:
     pass
 
-__version__ = '1.3'
+__version__ = '2.0'

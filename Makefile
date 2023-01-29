@@ -1,6 +1,5 @@
 package: 
-	python3 setup.py sdist
-
+	python setup.py sdist
 
 install: 
 	pip install $(shell ls dist/*.tar.gz)
@@ -8,7 +7,7 @@ install:
 all: clean package install
 
 upload:
-	python3 -m twine upload dist/*
+	python -m twine upload dist/*
 
 clean:
 	rm -rf dist
