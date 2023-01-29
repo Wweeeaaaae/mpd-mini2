@@ -66,6 +66,7 @@ The best way to understand experiment launcher is to look at the basic example i
         - `./logs/exp_name_DATE/param1__value/param2__value/SEED/` 
       - **Be careful** when specifying the parameters and double underscores. 
         The launcher will throw an error if two experiments lead to the same results directory (which would be overwritten).
+      - To see this problem, uncomment the line `# dict(floating_arg=11.0, string_arg='test')` in [examples/basic/launch_test.py](examples/basic/launch_test.py)
       - Parameters will with trailing underscores have priority over their counterparts without underscores. E.g., `env='some_env'` will be overwritten by `env__='my_env'`
   - Running the experiments with `launcher.run(LOCAL)`
     - This runs your experiment either locally (LOCAL: `True`) or in the cluster (LOCAL: `False`) 
@@ -87,6 +88,7 @@ The best way to understand experiment launcher is to look at the basic example i
 The experiment launcher provides an easy way to integrate with Weights and Biases.
 - In the experiment file add
   - The decorator `single_experiment_wandb` to your `experiment` function
+    (currently this saves the experiments arguments as yaml, and start a python logging instance)
   - `**kwargs` in the `experiment` function definition
 - In the launcher file, create wandb options and add them to the `launcher.add_experiment()`
   ```python
@@ -100,6 +102,7 @@ The experiment launcher provides an easy way to integrate with Weights and Biase
   
 
 ### Running experiments with parameters in configuration files
+- If you have many parameters that you need to change, a good idea can be to use configuration files. 
 - If you want to specify your parameters in a configuration file, look at the example under `examples/config_files`
   
 

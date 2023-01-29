@@ -22,10 +22,16 @@ def experiment(
     # MANDATORY
     seed: int = 0,
     results_dir: str = 'logs',
-    **kwargs  # accept unknown arguments
+
+    #######################################
+    # OPTIONAL
+    # accept unknown arguments
+    **kwargs
 ):
     # EXPERIMENT
     print(f'DEBUG MODE: {debug}')
+
+    print(f'kwargs: {kwargs}')
 
     filename = os.path.join(results_dir, 'log_' + str(seed) + '.txt')
     out_str = f'Running experiment with seed {seed}, env {env}, ' \
