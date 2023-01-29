@@ -51,7 +51,7 @@ The best way to understand experiment launcher is to look at the basic example i
   - Creating an instance of the `Launcher` object, that contains the SLURM or Joblib (if run locally) parameters. These are some of the important parameters. For more consult the class definition.
     - `exp_name` is the experiment name, under which a results directory will be created
     - `exp_file` is the path to the python file where the `experiment` is implemented (without the extension `.py`)
-    - `project_name` is the project name in the cluster (only relevant for the HRZ cluster of TU Darmstadt)
+    - `project_name` is the project name in the cluster
     - `n_seeds` is the number of random seeds for each single experiment configuration
     - `n_exps_in_parallel` is the number of experiments to be run in parallel. This is useful to run multiple jobs in a single GPU in the cluster
     - `n_cores` is the number of cores for each experiment. Note that if `n_exps_in_parallel > 1`, then `n_exps_in_parallel` jobs will share `n_cores`
@@ -64,7 +64,8 @@ The best way to understand experiment launcher is to look at the basic example i
     - Parameters that are followed by _**two trailing underscores**_ will be used to create experiment directories
       - Results directories are going to be created by default as, e.g. with `param__` and `param2__`
         - `./logs/exp_name_DATE/param1__value/param2__value/SEED/` 
-      - **Be careful** when specifying the parameters and double underscores. The launcher will throw an error if two experiments have the same parameters (since directories would be overwritten).
+      - **Be careful** when specifying the parameters and double underscores. 
+        The launcher will throw an error if two experiments lead to the same results directory (which would be overwritten).
       - Parameters will with trailing underscores have priority over their counterparts without underscores. E.g., `env='some_env'` will be overwritten by `env__='my_env'`
   - Running the experiments with `launcher.run(LOCAL)`
     - This runs your experiment either locally (LOCAL: `True`) or in the cluster (LOCAL: `False`) 
