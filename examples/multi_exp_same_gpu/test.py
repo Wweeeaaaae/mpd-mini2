@@ -3,12 +3,11 @@ import time
 import torch.cuda
 import wandb
 
-from experiment_launcher import run_experiment, single_experiment_wandb
+from experiment_launcher import run_experiment, single_experiment_yaml
 
 
-# This decorator is not mandatory.
-# It creates results_dir as results_dir/seed, and saves the experiment arguments into a file.
-@single_experiment_wandb
+# This decorator creates results_dir as results_dir/seed, and saves the experiment arguments into a file.
+@single_experiment_yaml
 def experiment(
     #######################################
     env: str = 'env-name',  # You need to specify the argument type if you use the automatic parser.
@@ -37,7 +36,7 @@ def experiment(
 
     wandb.log({'seed': seed}, step=1)
 
-    end_time = time.time() + 10
+    end_time = time.time() + 0.01
     while time.time() < end_time:
         tensor = tensor1 * tensor2
     print('Finished experiment.')

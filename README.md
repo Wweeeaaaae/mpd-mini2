@@ -54,7 +54,9 @@ The best way to understand experiment launcher is to look at the basic example i
     - `project_name` is the project name in the cluster
     - `n_seeds` is the number of random seeds for each single experiment configuration
     - `n_exps_in_parallel` is the number of experiments to be run in parallel. This is useful to run multiple jobs in a single GPU in the cluster
-    - `n_cores` is the number of cores for each experiment. Note that if `n_exps_in_parallel > 1`, then `n_exps_in_parallel` jobs will share `n_cores`
+    - `n_cores` is the number of cores for each experiment.
+       Note that if `n_exps_in_parallel > 1`, then `n_exps_in_parallel` jobs will share `n_cores`.
+       This parameter does not apply if running locally. For that you should use the linux comamnd [taskset](https://man7.org/linux/man-pages/man1/taskset.1.html)
     - `memory_per_core` is amount of memory in MB requested for each core in SLURM. If you specify this too low, SLURM might crash.
     - `partition` is the SLURM partition, which is cluster dependent
     - `gres` are special resources asked for a SLURM experiment
@@ -87,10 +89,8 @@ The best way to understand experiment launcher is to look at the basic example i
 
 The experiment launcher provides an easy way to integrate with Weights and Biases.
 - In the experiment file add
-  - The decorator `single_experiment_wandb` to your `experiment` function
-    (currently this saves the experiments arguments as yaml, and start a python logging instance)
   - `**kwargs` in the `experiment` function definition
-- In the launcher file, create wandb options and add them to the `launcher.add_experiment()`
+- In the launcher file, create wandb options and pass them to the `launcher.add_experiment()`
   ```python
   wandb_options = dict(
     wandb_enabled=False,  # If True, runs and logs to wandb.

@@ -8,7 +8,7 @@ from functools import wraps, partial
 from experiment_launcher.utils import save_args, start_wandb, create_results_dir
 
 
-def wrapper_single_experiment(exp_func, save_args_yaml=False, use_logging=False):
+def wrapper_single_experiment(exp_func, save_args_yaml=False, use_logging=False, make_dirs_with_seed=True):
     @wraps(exp_func)
     def wrapper(
         # Function arguments
@@ -16,7 +16,7 @@ def wrapper_single_experiment(exp_func, save_args_yaml=False, use_logging=False)
         **kwargs
     ):
         # Make results directory
-        kwargs = create_results_dir(**kwargs)
+        kwargs = create_results_dir(make_dirs_with_seed=make_dirs_with_seed, **kwargs)
 
         # Setup logging
         if use_logging:
@@ -42,4 +42,5 @@ def wrapper_single_experiment(exp_func, save_args_yaml=False, use_logging=False)
 
 
 single_experiment = partial(wrapper_single_experiment)
-single_experiment_wandb = partial(wrapper_single_experiment, save_args_yaml=True, use_logging=True)
+single_experiment_flat = partial(wrapper_single_experiment, make_dirs_with_seed=False)
+single_experiment_yaml = partial(wrapper_single_experiment, save_args_yaml=True, use_logging=True)

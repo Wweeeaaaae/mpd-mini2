@@ -1,12 +1,11 @@
 import wandb
 import yaml
 
-from experiment_launcher import run_experiment, single_experiment_wandb
+from experiment_launcher import run_experiment, single_experiment_yaml
 
 
-# This decorator is not mandatory.
-# It creates results_dir as results_dir/seed, and saves the experiment arguments into a file.
-@single_experiment_wandb
+# This decorator creates results_dir as results_dir/seed, and saves the experiment arguments into a file.
+@single_experiment_yaml
 def experiment(
     #######################################
     config_file_path: str = './configs/config00.yaml',

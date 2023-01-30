@@ -5,8 +5,7 @@ import wandb
 from experiment_launcher import run_experiment, single_experiment
 
 
-# This decorator is not mandatory.
-# It creates results_dir as results_dir/seed, and saves the experiment arguments into a file.
+# This decorator creates results_dir as results_dir/seed, and saves the experiment arguments into a file.
 @single_experiment
 def experiment(
     #######################################
