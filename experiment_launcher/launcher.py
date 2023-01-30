@@ -85,9 +85,7 @@ class Launcher(object):
 
         # directories for slurm sbatch files and logs
         self._exp_dir_slurm_files = os.path.join(self._exp_dir_slurm, "slurm_files")
-        os.makedirs(self._exp_dir_slurm_files)
         self._exp_dir_slurm_logs = os.path.join(self._exp_dir_slurm, "slurm_logs")
-        os.makedirs(self._exp_dir_slurm_logs)
 
         self._compact_dirs = compact_dirs
 
@@ -204,6 +202,10 @@ echo "...done."
         return full_path
 
     def _run_slurm(self, test):
+        # Create slurm directories for sbatch and log files
+        os.makedirs(self._exp_dir_slurm_files)
+        os.makedirs(self._exp_dir_slurm_logs)
+
         # Generate and save slurm files
         slurm_files_path_l = []
         experiment_list_chunked = []
