@@ -329,7 +329,6 @@ echo "...done."
             new_command = '--' + key + ' '
 
             if isinstance(value, list):
-                raise NotImplementedError
                 new_command += ' '.join(map(str, value)) + ' '
             else:
                 new_command += str(value) + ' '
@@ -432,13 +431,26 @@ def string_to_primitive(string):
 
 def parse_unknown_args(unknown):
     kwargs = dict()
-    skip = False
-    for i, arg in enumerate(unknown):
-        if not skip and arg.startswith('--') and i + 1 < len(unknown):
-            kwargs[arg[2:]] = string_to_primitive(unknown[i + 1])
-            skip = True
-        else:
-            skip = False
+
+    key_idxs = [i for i, arg in enumerate(unknown) if arg.startswith('--')]
+
+    if len(key_idxs) > 0:
+        key_n_args = [key_idxs[i+1] - 1 - key_idxs[i] for i in range(len(key_idxs)-1)]
+        key_n_args.append(len(unknown) - 1 - key_idxs[-1])
+
+        for i, idx in enumerate(key_idxs):
+            key = unknown[idx][2:]
+            n_args = key_n_args[i]
+            if n_args > 1:
+                values = list()
+
+                for v in unknown[idx+1:idx + 1 + n_args]:
+                    values.append(string_to_primitive(v))
+
+                kwargs[key] = values
+
+            elif n_args == 1:
+                kwargs[key] = string_to_primitive(unknown[idx+1])
 
     return kwargs
 
