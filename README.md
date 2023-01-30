@@ -32,9 +32,9 @@ The best way to understand experiment launcher is to look at the basic example i
     - It takes as arguments your experiment settings (e.g., the number of layers in a neural 
         network, the learning rate, ...)
     - The arguments need to be assigned a type and default value in the function definition
-      - Current accepted types are `int`, `float`, `str`, `bool`
+      - Current accepted types are `int`, `float`, `str`, `bool`, `list`
       - The arguments `seed` and `results_dir` **must** always be included
-      - Python kwargs can also be added as `**kwargs`
+      - Python kwargs can also be added as `**kwargs` (accepted types are the same as above)
     - This function **must** be decorated with a decorator, e.g. `@single_experiment`. 
       This will take care of creating proper results directories.
  
