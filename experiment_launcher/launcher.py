@@ -151,7 +151,7 @@ class Launcher(object):
 {project_name_option}{partition_option}{begin_option}{gres_option}
 # Mandatory parameters
 #SBATCH -J {self._exp_name}
-#SBATCH -a 0-{self._n_seeds-1}
+#SBATCH -a 0-{self._n_seeds - 1}
 #SBATCH -t {self._duration}
 #SBATCH --ntasks 1
 #SBATCH --cpus-per-task {self._n_cores}
@@ -435,7 +435,7 @@ def parse_unknown_args(unknown):
     skip = False
     for i, arg in enumerate(unknown):
         if not skip and arg.startswith('--') and i + 1 < len(unknown):
-            kwargs[arg[2:]] = string_to_primitive(unknown[i+1])
+            kwargs[arg[2:]] = string_to_primitive(unknown[i + 1])
             skip = True
         else:
             skip = False
@@ -465,7 +465,6 @@ def parse_args(func):
 
 
 def run_experiment(func, args=None):
-
     if not args:
         args = parse_args(func)
 

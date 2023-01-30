@@ -62,5 +62,4 @@ for i, config_file in enumerate(config_files_l):
         wandb_group=f'test_group-el-{config_file}'
     )
 
-
 launcher.run(LOCAL, TEST)

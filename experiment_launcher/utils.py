@@ -1,18 +1,15 @@
 import datetime
 import json
-import logging
 import os
-import socket
-import time
-
-import wandb
-import yaml
-
-import git
-from git import InvalidGitRepositoryError
-
 import random
 from random import randint
+from shutil import which
+
+import git
+import wandb
+import yaml
+from git import InvalidGitRepositoryError
+
 try:
     import numpy as np
     import torch
@@ -20,7 +17,7 @@ except ImportError:
     pass
 
 
-def save_args(results_dir, args, git_repo_path=None, seed=None, save_args_as_yaml=False, verbose=False):
+def save_args(results_dir, args, git_repo_path=None, seed=None, save_args_as_yaml=False, print_exp_args=False):
     try:
         repo = git.Repo(git_repo_path, search_parent_directories=True)
         args['git_hash'] = repo.head.object.hexsha
@@ -41,7 +38,7 @@ def save_args(results_dir, args, git_repo_path=None, seed=None, save_args_as_yam
     del args['git_hash']
     del args['git_url']
 
-    if verbose:
+    if print_exp_args:
         print('------------------------------------------------------------------------------------')
         print('--------> Experiment arguments')
         print(json.dumps(args, indent=2))
@@ -49,23 +46,17 @@ def save_args(results_dir, args, git_repo_path=None, seed=None, save_args_as_yam
 
 
 def is_local():
-    clusters_name_list = ['mn01', 'logc']
-    hostname = socket.gethostname()
-    for cluster_name in clusters_name_list:
-        if cluster_name in hostname:
-            return False
-    return True
+    return which('slurm') is None
 
 
 def start_wandb(
-    wandb_enabled=False,
-    wandb_entity='experiment_launcher',
-    wandb_project='test_experiment_launcher',
-    wandb_group=None,
-    wandb_run_name=None,
-    **kwargs
+        wandb_enabled=False,
+        wandb_entity='experiment_launcher',
+        wandb_project='test_experiment_launcher',
+        wandb_group=None,
+        wandb_run_name=None,
+        **kwargs
 ):
-
     if not wandb_enabled:
         return wandb.init(mode="disabled")
 
