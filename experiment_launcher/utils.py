@@ -46,7 +46,7 @@ def save_args(results_dir, args, git_repo_path=None, seed=None, save_args_as_yam
 
 
 def is_local():
-    return (which('slurm') is None) or (which('sbatch') is None)
+    return which('sbatch') is None
 
 
 def start_wandb(
