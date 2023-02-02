@@ -95,11 +95,12 @@ def random_int_with_n_digits(n):
     return randint(range_start, range_end)
 
 
-def create_results_dir(make_dirs_with_seed=True, results_dir=None, seed=None, **kwargs):
+def create_results_dir(kwargs, make_dirs_with_seed=True):
+    seed = kwargs['seed']
+    results_dir = kwargs['results_dir']
     assert results_dir is not None and seed is not None, "results_dir and seed must exist"
     results_dir_new = results_dir
     if make_dirs_with_seed:
         results_dir_new = os.path.join(results_dir_new, str(seed))
     os.makedirs(results_dir_new, exist_ok=True)
     kwargs['results_dir'] = results_dir_new
-    return kwargs

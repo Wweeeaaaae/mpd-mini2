@@ -14,7 +14,7 @@ def wrapper_single_experiment(exp_func, save_args_yaml=False, use_logging=False,
         **kwargs
     ):
         # Make results directory
-        kwargs = create_results_dir(make_dirs_with_seed=make_dirs_with_seed, **kwargs)
+        create_results_dir(kwargs, make_dirs_with_seed)
 
         # Setup logging
         if use_logging:
