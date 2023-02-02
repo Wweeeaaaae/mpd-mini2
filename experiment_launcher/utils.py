@@ -59,10 +59,10 @@ def start_wandb(
 ):
     # https://github.com/wandb/wandb/issues/3911#issuecomment-1409769887
     # workaround to make sure that wandb does not crash
-    os.environ["WANDB__SERVICE_WAIT"] = "300"
+    os.environ["WANDB__SERVICE_WAIT"] = "600"
 
     if not wandb_enabled:
-        return wandb.init(mode="disabled")
+        return wandb.init(mode="disabled", reinit=True)
 
     init = {
         "entity": wandb_entity,
