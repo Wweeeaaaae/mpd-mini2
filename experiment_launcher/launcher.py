@@ -46,7 +46,7 @@ class Launcher(object):
                 (e.g. for multiple experiments in the same gpu)
             conda_env (str): name of the conda environment to run the experiments in
             gres (str): request cluster resources. E.g. to add a GPU in the IAS cluster specify gres='gpu:rtx2080:1'
-            partition (str): the partition to use in case of slurm execution. If None, no partition is specified.
+            partition (str, None): the partition to use in case of slurm execution. If None, no partition is specified.
             begin (str): start the slurm experiment at a given time (see --begin in slurm docs)
             use_timestamp (bool): add a timestamp to the experiment name
             compact_dirs (bool): If true, only the parameter value is used for the directory name.

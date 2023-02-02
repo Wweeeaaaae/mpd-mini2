@@ -46,7 +46,7 @@ def save_args(results_dir, args, git_repo_path=None, seed=None, save_args_as_yam
 
 
 def is_local():
-    return which('slurm') is None
+    return (which('slurm') is None) or (which('sbatch') is None)
 
 
 def start_wandb(
@@ -57,6 +57,10 @@ def start_wandb(
         wandb_run_name=None,
         **kwargs
 ):
+    # https://github.com/wandb/wandb/issues/3911#issuecomment-1409769887
+    # workaround to make sure that wandb does not crash
+    os.environ["WANDB__SERVICE_WAIT"] = "300"
+
     if not wandb_enabled:
         return wandb.init(mode="disabled")
 
