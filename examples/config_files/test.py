@@ -1,3 +1,5 @@
+import os
+
 import wandb
 import yaml
 
@@ -32,6 +34,12 @@ def experiment(
 
     print('Config file content:')
     print(configs)
+
+    filename = os.path.join(results_dir, 'log_' + str(seed) + '.txt')
+    out_str = f'Running experiment with seed {seed}'
+    with open(filename, 'w') as file:
+        file.write('Some logs in a log file.\n')
+        file.write(out_str)
 
     wandb.log({'seed': seed}, step=1)
 

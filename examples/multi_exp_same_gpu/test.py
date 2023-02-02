@@ -1,3 +1,4 @@
+import os
 import time
 
 import torch.cuda
@@ -33,6 +34,12 @@ def experiment(
 
     print(f'Env: {env}')
     print(f'Tensor shape: {tensor1.shape}')
+
+    filename = os.path.join(results_dir, 'log_' + str(seed) + '.txt')
+    out_str = f'Running experiment with seed {seed}'
+    with open(filename, 'w') as file:
+        file.write('Some logs in a log file.\n')
+        file.write(out_str)
 
     wandb.log({'seed': seed}, step=1)
 
