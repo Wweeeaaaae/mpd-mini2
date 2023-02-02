@@ -57,6 +57,10 @@ def start_wandb(
         wandb_run_name=None,
         **kwargs
 ):
+    # https://github.com/wandb/wandb/issues/3911#issuecomment-1409769887
+    # workaround to make sure that wandb does not crash
+    os.environ["WANDB__SERVICE_WAIT"] = "300"
+
     if not wandb_enabled:
         return wandb.init(mode="disabled")
 
