@@ -43,3 +43,4 @@ def wrapper_single_experiment(exp_func, save_args_yaml=False, use_logging=False,
 single_experiment = partial(wrapper_single_experiment)
 single_experiment_flat = partial(wrapper_single_experiment, make_dirs_with_seed=False)
 single_experiment_yaml = partial(wrapper_single_experiment, save_args_yaml=True, use_logging=True, print_exp_args=False)
+single_experiment_flat_yaml = partial(wrapper_single_experiment, make_dirs_with_seed=False, save_args_yaml=True)
