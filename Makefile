@@ -1,10 +1,10 @@
 package: 
 	python setup.py sdist
 
-install: 
+install: package
 	pip install $(shell ls dist/*.tar.gz)
 
-all: clean package install
+all: clean install
 
 upload:
 	python -m twine upload dist/*
