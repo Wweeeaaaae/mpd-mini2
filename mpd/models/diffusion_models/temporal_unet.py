@@ -20,6 +20,7 @@ UNET_DIM_MULTS = {
 class TemporalUnet(nn.Module):
 
     def __init__(
+            # 初始化模型支持点数、状态维度、U-Net输入维度、维度乘数、时间嵌入维度、是否使用自注意力、条件嵌入维度、条件类型、注意力头数和每个头的维度
             self,
             n_support_points=None,
             state_dim=None,
@@ -38,14 +39,15 @@ class TemporalUnet(nn.Module):
         self.state_dim = state_dim
         input_dim = state_dim
 
-        # Conditioning
+        # 拼接，避免concatenate拼接条件下state_dim远小于conditioning_dim
         if conditioning_type is None or conditioning_type == 'None':
             conditioning_type = None
         elif conditioning_type == 'concatenate':
             if self.state_dim < conditioning_embed_dim // 4:
-                # Embed the state in a latent space HxF if the conditioning embedding is much larger than the state
                 state_emb_dim = conditioning_embed_dim // 4
                 self.state_encoder = MLP(state_dim, state_emb_dim, hidden_dim=state_emb_dim//2, n_layers=1, act='mish')
+                # 使用MLP将state_dim维度映射到 state_emb_dim维度，称作embedding或encoding
+                # 隐藏层维度是嵌入维度的一半，只有一个隐藏层，指定指定了mish激活函数
             else:
                 state_emb_dim = state_dim
                 self.state_encoder = nn.Identity()
@@ -59,8 +61,11 @@ class TemporalUnet(nn.Module):
         self.conditioning_type = conditioning_type
 
         dims = [input_dim, *map(lambda m: unet_input_dim * m, dim_mults)]
+        # dim_mults=UNET_DIM_MULTS[args['unet_dim_mults_option']] 维度乘数配置  inference.py
+        # 设定维度列表
         in_out = list(zip(dims[:-1], dims[1:]))
         print(f'[ models/temporal ] Channel dimensions: {in_out}')
+        # 打印dims[:-1]每层输入维度，dims[1:]每层输出维度
 
         # Networks
         self.time_mlp = TimeEncoder(32, time_emb_dim)

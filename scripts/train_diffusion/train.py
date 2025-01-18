@@ -15,39 +15,40 @@ os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 @single_experiment_yaml
 def experiment(
     ########################################################################
-    # Dataset
+    #  数据集
     dataset_subdir: str = 'EnvSimple2D-RobotPointMass',
     # dataset_subdir: str = 'EnvSpheres3D-RobotPanda',
     include_velocity: bool = True,
 
     ########################################################################
-    # Diffusion Model
+    #  扩散模型
     diffusion_model_class: str = 'GaussianDiffusionModel',
-    variance_schedule: str = 'exponential',  # cosine
+    variance_schedule: str = 'exponential',  #噪声由少变多，可选择cosine
     n_diffusion_steps: int = 25,
     predict_epsilon: bool = True,
 
-    # Unet
-    unet_input_dim: int = 32,
-    unet_dim_mults_option: int = 1,
+    #  Unet网络
+    unet_input_dim: int = 32,  #输入维度
+    unet_dim_mults_option: int = 1,  #各层的维度倍数
+    # 1: (1, 2, 4, 8)
 
     ########################################################################
-    # Loss
+    #  损失函数
     loss_class: str = 'GaussianDiffusionLoss',
 
-    # Training parameters
+    #  训练参数
     batch_size: int = 32,
     lr: float = 1e-4,
-    num_train_steps: int = 500000,
+    num_train_steps: int = 500000,   #迭代次数
 
-    use_ema: bool = True,
-    use_amp: bool = False,
+    use_ema: bool = True,  #使用指数移动平均（ EMA）来平滑模型参数
+    use_amp: bool = False,  #使用自动混合精度（ AMP）来训练模型
 
-    # Summary parameters
-    steps_til_summary: int = 10,
-    summary_class: str = 'SummaryTrajectoryGeneration',
+    #  总结参数
+    steps_til_summary: int = 10,  #训练总结频率
+    summary_class: str = 'SummaryTrajectoryGeneration',  #生成训练总结的类
 
-    steps_til_ckpt: int = 50000,
+    steps_til_ckpt: int = 50000,  #保存模型检查点的频率
 
     ########################################################################
     device: str = 'cuda',
@@ -55,12 +56,12 @@ def experiment(
     debug: bool = True,
 
     ########################################################################
-    # MANDATORY
+    #  MANDATORY
     seed: int = 0,
     results_dir: str = 'logs',
 
     ########################################################################
-    # WandB
+    #  WandB
     wandb_mode: str = 'disabled',  # "online", "offline" or "disabled"
     wandb_entity: str = 'scoreplan',
     wandb_project: str = 'test_train',
@@ -71,7 +72,7 @@ def experiment(
     device = get_torch_device(device=device)
     tensor_args = {'device': device, 'dtype': torch.float32}
 
-    # Dataset
+    #  获取训练集
     train_subset, train_dataloader, val_subset, val_dataloader = get_dataset(
         dataset_class='TrajectoryDataset',
         include_velocity=include_velocity,
@@ -84,26 +85,26 @@ def experiment(
 
     dataset = train_subset.dataset
 
-    # Model
+    # 模型参数设置
     diffusion_configs = dict(
-        variance_schedule=variance_schedule,
-        n_diffusion_steps=n_diffusion_steps,
-        predict_epsilon=predict_epsilon,
+        variance_schedule=variance_schedule,  # 方差调度策略，控制噪声的增加或减少
+        n_diffusion_steps=n_diffusion_steps,  # 扩散步骤数，决定模型执行扩散过程的次数
+        predict_epsilon=predict_epsilon,  # 是否预测噪声项ε
     )
 
     unet_configs = dict(
-        state_dim=dataset.state_dim,
-        n_support_points=dataset.n_support_points,
-        unet_input_dim=unet_input_dim,
-        dim_mults=UNET_DIM_MULTS[unet_dim_mults_option],
+        state_dim=dataset.state_dim,  # 从数据集中获取状态空间的维度
+        n_support_points=dataset.n_support_points,  # 从数据集中获取支持点的数量
+        unet_input_dim=unet_input_dim,  # U-Net网络的输入维度
+        dim_mults=UNET_DIM_MULTS[unet_dim_mults_option],  # 根据选项获取U-Net各层的维度倍数
     )
 
     model = get_model(
-        model_class=diffusion_model_class,
-        model=TemporalUnet(**unet_configs),
-        tensor_args=tensor_args,
-        **diffusion_configs,
-        **unet_configs
+        model_class=diffusion_model_class,  # 指定使用的扩散模型类别
+        model=TemporalUnet(**unet_configs),  # 创建TemporalUnet实例，并传入U-Net配置
+        tensor_args=tensor_args,  # 指定设备和数据类型参数
+        **diffusion_configs,  # 将扩散模型配置参数传入模型
+        **unet_configs  # 将U-Net配置参数传入模型
     )
 
     # Loss

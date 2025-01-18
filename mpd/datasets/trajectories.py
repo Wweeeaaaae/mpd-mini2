@@ -212,12 +212,12 @@ class TrajectoryDataset(TrajectoryDatasetBase):
         super().__init__(**kwargs)
 
     def get_hard_conditions(self, traj, horizon=None, normalize=False):
-        # start and goal positions
+        #提取起始和目标位置
         start_state_pos = self.robot.get_position(traj[0])
         goal_state_pos = self.robot.get_position(traj[-1])
 
         if self.include_velocity:
-            # If velocities are part of the state, then set them to zero at the beggining and end of a trajectory
+            #如果速度是状态的一部分，则在轨迹的开始和结束时将其设置为零
             start_state = torch.cat((start_state_pos, torch.zeros_like(start_state_pos)), dim=-1)
             goal_state = torch.cat((goal_state_pos, torch.zeros_like(goal_state_pos)), dim=-1)
         else:
@@ -229,6 +229,7 @@ class TrajectoryDataset(TrajectoryDatasetBase):
             goal_state = self.normalizer.normalize(goal_state, key=self.field_key_traj)
 
         if horizon is None:
+            #  设置时间范围（Horizon）
             horizon = self.n_support_points
         hard_conds = {
             0: start_state,

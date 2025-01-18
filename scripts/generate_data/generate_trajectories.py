@@ -57,6 +57,7 @@ def generate_collision_free_trajectories(
         goal_state_pos = q_free[1]
 
         if torch.linalg.norm(start_state_pos - goal_state_pos) > threshold_start_goal_pos:
+        #  在关节空间中计算两个配置的差异
             break
 
     if start_state_pos is None or goal_state_pos is None:
@@ -67,74 +68,74 @@ def generate_collision_free_trajectories(
     n_trajectories = num_trajectories_per_context
 
     # -------------------------------- Hybrid Planner ---------------------------------
-    # Sample-based planner
-    rrt_connect_default_params_env = env.get_rrt_connect_params(robot=robot)
-    rrt_connect_default_params_env['max_time'] = rrt_max_time
+    # Sample-based planner基于样本的规划器
+    rrt_connect_default_params_env = env.get_rrt_connect_params(robot=robot)  #获取默认参数
+    rrt_connect_default_params_env['max_time'] = rrt_max_time  #设置算法运行最大时间
 
-    rrt_connect_params = dict(
+    rrt_connect_params = dict(        #创建一个字典，包含RRTConnect算法所需的所有参数。
         **rrt_connect_default_params_env,
         task=task,
         start_state_pos=start_state_pos,
         goal_state_pos=goal_state_pos,
         tensor_args=tensor_args,
     )
-    sample_based_planner_base = RRTConnect(**rrt_connect_params)
+    sample_based_planner_base = RRTConnect(**rrt_connect_params)  #创建一个RRTConnect规划器，生成从起始状态到目标状态的路径。
     # sample_based_planner_base = RRTStar(**rrt_connect_params)
     # sample_based_planner = sample_based_planner_base
-    sample_based_planner = MultiSampleBasedPlanner(
+    sample_based_planner = MultiSampleBasedPlanner(  #创建一个实例
         sample_based_planner_base,
-        n_trajectories=n_trajectories,
-        max_processes=-1,
-        optimize_sequentially=True
+        n_trajectories=n_trajectories,  #指定生成的轨迹数目
+        max_processes=-1,  #使用所有可用的CPU核心来并行化轨迹生成过程
+        optimize_sequentially=True  #轨迹优化的顺序性，非并行
     )
 
-    # Optimization-based planner
-    gpmp_default_params_env = env.get_gpmp2_params(robot=robot)
-    gpmp_default_params_env['opt_iters'] = gpmp_opt_iters
+    # Optimization-based planner基于优化的规划器
+    gpmp_default_params_env = env.get_gpmp2_params(robot=robot)  #获取默认参数
+    gpmp_default_params_env['opt_iters'] = gpmp_opt_iters  #修改GPMP2算法的优化迭代次数
     gpmp_default_params_env['n_support_points'] = n_support_points
-    gpmp_default_params_env['dt'] = duration / n_support_points
+    gpmp_default_params_env['dt'] = duration / n_support_points  #每个时间步长的长度
 
     planner_params = dict(
         **gpmp_default_params_env,
         robot=robot,
-        n_dof=robot.q_dim,
-        num_particles_per_goal=n_trajectories,
+        n_dof=robot.q_dim,  #机器人自由度
+        num_particles_per_goal=n_trajectories,  #每个目标状态的粒子数，这里设置为需要生成的轨迹数量
         start_state=start_state_pos,
-        multi_goal_states=goal_state_pos.unsqueeze(0),  # add batch dim for interface,
-        collision_fields=task.get_collision_fields(),
+        multi_goal_states=goal_state_pos.unsqueeze(0),  #目标状态位置，使用unsqueeze(0)添加一个批次维度，以适应GPMP2算法的接口
+        collision_fields=task.get_collision_fields(),  #碰撞字段
         tensor_args=tensor_args,
     )
     opt_based_planner = GPMP2(**planner_params)
 
     ###############
-    # Hybrid planner
-    planner = HybridPlanner(
+    # Hybrid planner混合规划器
+    planner = HybridPlanner(     #创建实例
         sample_based_planner,
         opt_based_planner,
         tensor_args=tensor_args
     )
 
     # Optimize
-    trajs_iters = planner.optimize(debug=debug, print_times=True, return_iterations=True)
-    trajs_last_iter = trajs_iters[-1]
+    trajs_iters = planner.optimize(debug=debug, print_times=True, return_iterations=True)  #RRT算法生成轨迹，GPMP2算法迭代优化
+    trajs_last_iter = trajs_iters[-1]  #获取最后一次迭代的轨迹
 
-    # -------------------------------- Save trajectories ---------------------------------
+    # -------------------------------- 保存轨迹 ---------------------------------
     print(f'----------------STATISTICS----------------')
     print(f'percentage free trajs: {task.compute_fraction_free_trajs(trajs_last_iter)*100:.2f}')
     print(f'percentage collision intensity {task.compute_collision_intensity_trajs(trajs_last_iter)*100:.2f}')
     print(f'success {task.compute_success_free_trajs(trajs_last_iter)}')
 
-    # save
-    torch.cuda.empty_cache()
-    trajs_last_iter_coll, trajs_last_iter_free = task.get_trajs_collision_and_free(trajs_last_iter)
-    if trajs_last_iter_coll is None:
+    #  区分最后迭代轨迹是否碰撞并保存
+    torch.cuda.empty_cache()  #清空CUDA缓存
+    trajs_last_iter_coll, trajs_last_iter_free = task.get_trajs_collision_and_free(trajs_last_iter)  #获取碰撞和无碰撞轨迹
+    if trajs_last_iter_coll is None:    #处理空的碰撞轨迹和无碰撞轨迹
         trajs_last_iter_coll = torch.empty(0)
     torch.save(trajs_last_iter_coll, os.path.join(results_dir, f'trajs-collision.pt'))
     if trajs_last_iter_free is None:
         trajs_last_iter_free = torch.empty(0)
     torch.save(trajs_last_iter_free, os.path.join(results_dir, f'trajs-free.pt'))
 
-    # save results data dict
+    #  区分并保存迭代过程轨迹参数
     trajs_iters_coll, trajs_iters_free = task.get_trajs_collision_and_free(trajs_iters[-1])
     results_data_dict = {
         'duration': duration,
@@ -144,10 +145,10 @@ def generate_collision_free_trajectories(
         'trajs_iters_free': trajs_iters_free.unsqueeze(0) if trajs_iters_free is not None else None,
     }
 
-    with open(os.path.join(results_dir, f'results_data_dict.pickle'), 'wb') as handle:
+    with open(os.path.join(results_dir, f'results_data_dict.pickle'), 'wb') as handle:  # pickle 模块将包含优化结果的字典序列化并保存到指定的文件中
         pickle.dump(results_data_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    # -------------------------------- Visualize ---------------------------------
+    # -------------------------------- 可视化 ---------------------------------
     planner_visualizer = PlanningVisualizer(task=task)
 
     trajs = trajs_last_iter_free
@@ -155,16 +156,17 @@ def generate_collision_free_trajectories(
     start_state_pos = pos_trajs[0][0]
     goal_state_pos = pos_trajs[0][-1]
 
-    fig, axs = planner_visualizer.plot_joint_space_state_trajectories(
+    fig, axs = planner_visualizer.plot_joint_space_state_trajectories(  #绘制关节空间状态轨迹
         trajs=trajs,
         pos_start_state=start_state_pos, pos_goal_state=goal_state_pos,
         vel_start_state=torch.zeros_like(start_state_pos), vel_goal_state=torch.zeros_like(goal_state_pos),
     )
 
-    # save figure
+    # 保存图像
     fig.savefig(os.path.join(results_dir, f'trajectories.png'), dpi=300)
     plt.close(fig)
 
+    #  返回最后迭代碰撞，非碰撞轨迹数目
     num_trajectories_coll, num_trajectories_free = len(trajs_last_iter_coll), len(trajs_last_iter_free)
     return num_trajectories_coll, num_trajectories_free
 
@@ -180,12 +182,12 @@ def experiment(
     robot_id: str = 'RobotPanda',
 
     n_support_points: int = 64,
-    duration: float = 5.0,  # seconds
+    duration: float = 5.0,   #路径规划持续时间 seconds
 
     # threshold_start_goal_pos: float = 1.0,
-    threshold_start_goal_pos: float = 1.83,
+    threshold_start_goal_pos: float = 1.83,    #起始状态和目标状态之间的最小距离阈值
 
-    obstacle_cutoff_margin: float = 0.05,
+    obstacle_cutoff_margin: float = 0.05,    #障碍物的截止边界
 
     num_trajectories: int = 5,
 
@@ -221,10 +223,10 @@ def experiment(
         'robot_id': robot_id,
         'num_trajectories': num_trajectories
     }
-    with open(os.path.join(results_dir, 'metadata.yaml'), 'w') as f:
+    with open(os.path.join(results_dir, 'metadata.yaml'), 'w') as f:  #将实验的配置信息保存到YAML文件
         yaml.dump(metadata, f, Dumper=yaml.Dumper)
 
-    # Generate trajectories
+    # 生成轨迹
     num_trajectories_coll, num_trajectories_free = generate_collision_free_trajectories(
         env_id,
         robot_id,
@@ -238,6 +240,7 @@ def experiment(
         debug=debug,
     )
 
+    #  更新了metadata字典
     metadata.update(
         num_trajectories_generated=num_trajectories_coll + num_trajectories_free,
         num_trajectories_generated_coll=num_trajectories_coll,

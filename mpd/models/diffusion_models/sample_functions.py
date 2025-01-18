@@ -25,17 +25,18 @@ def ddpm_sample_fn(
         debug=False,
         **kwargs
 ):
-    t_single = t[0]
-    if t_single < 0:
+    t_single = t[0]  #时间步张量 t 中提取第一个元素
+    if t_single < 0:  #处理负时间步
         t = torch.zeros_like(t)
 
-    model_mean, _, model_log_variance = model.p_mean_variance(x=x, hard_conds=hard_conds, context=context, t=t)
-    x = model_mean
+    model_mean, _, model_log_variance = model.p_mean_variance(x=x, hard_conds=hard_conds, context=context, t=t)  #预测上一时间步的的均值和对数方差
+    x = model_mean  #直接赋值
 
-    model_log_variance = extract(model.posterior_log_variance_clipped, t, x.shape)
-    model_std = torch.exp(0.5 * model_log_variance)
-    model_var = torch.exp(model_log_variance)
+    model_log_variance = extract(model.posterior_log_variance_clipped, t, x.shape)  #裁剪的对数后验方差
+    model_std = torch.exp(0.5 * model_log_variance)  #标准差
+    model_var = torch.exp(model_log_variance)  #方差
 
+    #  引导步骤
     if guide is not None and t_single < t_start_guide:
         x = guide_gradient_steps(
             x,
@@ -51,12 +52,13 @@ def ddpm_sample_fn(
     noise = torch.randn_like(x)
     noise[t == 0] = 0
 
-    # For smoother results, we can decay the noise standard deviation throughout the diffusion
-    # this is roughly equivalent to using a temperature in the prior distribution
+    #  为了获得更平滑的结果，我们可以在整个扩散过程中对噪声标准偏差进行衰减
+    #  this is roughly equivalent to using a temperature in the prior distribution
+    #  是否提供了额外的噪声标准差调度函数
     if noise_std_extra_schedule_fn is None:
         noise_std = 1.0
     else:
-        noise_std = noise_std_extra_schedule_fn(t_single)
+        noise_std = noise_std_extra_schedule_fn(t_single)  #设置为0.5
 
     values = None
     return x + model_std * noise * noise_std, values

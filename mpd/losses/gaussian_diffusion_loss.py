@@ -1,4 +1,5 @@
 import torch
+from OpenGL.wrapper import none_or_pass
 
 from mpd.models import build_context
 
@@ -13,7 +14,7 @@ class GaussianDiffusionLoss:
         """
         Loss function for training diffusion-based generative models.
         """
-        traj_normalized = input_dict[f'{dataset.field_key_traj}_normalized']
+        traj_normalized = input_dict[f'{dataset.field_key_traj}_normalized']  #获取归一化后的轨迹
 
         context = build_context(diffusion_model, dataset, input_dict)
 

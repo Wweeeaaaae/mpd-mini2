@@ -9,6 +9,7 @@ from torch_robotics.torch_utils.torch_utils import freeze_torch_model_params
 
 
 @model_loader
+#加载预训练模型或创建新模型，是否冻结模型参数
 def get_model(model_class=None, checkpoint_path=None,
               freeze_loaded_model=False,
               tensor_args=None,
@@ -70,7 +71,7 @@ def build_module(model_class=None, submodules=None, **kwargs):
 def get_loss(loss_class=None, **kwargs):
     LossClass = getattr(losses, loss_class)
     loss = LossClass(**kwargs)
-    loss_fn = loss.loss_fn
+    loss_fn = loss.loss_fn  #提取实际的损失函数
     return loss_fn
 
 
@@ -79,20 +80,21 @@ def get_dataset(dataset_class=None,
                 batch_size=2,
                 val_set_size=0.05,
                 results_dir=None,
-                save_indices=False,
+                save_indices=False,  #保存索引
                 **kwargs):
     DatasetClass = getattr(datasets, dataset_class)
     print('\n---------------Loading data')
     full_dataset = DatasetClass(dataset_subdir=dataset_subdir, **kwargs)
+    #dataset_subdir: EnvSpheres3D-RobotPanda 从data_trained_models/EnvSpheres3D-RobotPanda/args.yaml
     print(full_dataset)
 
-    # split into train and validation
+    # 划分训练集和验证集，创建训练数据加载器，验证数据加载器
     train_subset, val_subset = random_split(full_dataset, [1-val_set_size, val_set_size])
     train_dataloader = DataLoader(train_subset, batch_size=batch_size)
     val_dataloader = DataLoader(val_subset, batch_size=batch_size)
 
     if save_indices:
-        # save the indices of training and validation sets (for later evaluation)
+        #  保存训练集和验证集的索引（用于以后的评估）
         torch.save(train_subset.indices, os.path.join(results_dir, f'train_subset_indices.pt'))
         torch.save(val_subset.indices, os.path.join(results_dir, f'val_subset_indices.pt'))
 
