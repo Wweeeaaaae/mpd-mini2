@@ -25,8 +25,9 @@ class DistanceField(ABC):
         pass
 
     def compute_cost(self, q, link_pos, *args, **kwargs):
-        q_orig_shape = q.shape
+        q_orig_shape = q.shape  #保持原始形状
         link_orig_shape = link_pos.shape
+        #  对机器人的关节配置 q 和末端执行器位置 link_pos 进行预处理
         if len(link_orig_shape) == 2:
             h = 1
             b, d = link_orig_shape
@@ -48,6 +49,7 @@ class DistanceField(ABC):
         cost = self.compute_costs_impl(q, link_pos, *args, **kwargs)
 
         if cost.ndim == 1:
+            #  检查成本张量维度
             cost = einops.rearrange(cost, "(b h) -> b h", b=b, h=h)
 
         # if len(link_orig_shape) == 4 or len(link_orig_shape) == 5:
@@ -159,6 +161,7 @@ class EmbodimentDistanceFieldBase(DistanceField):
     def compute_costs_impl(self, q, link_pos, **kwargs):
         # position link_pos tensor # batch x num_links x 3
         # interpolate to approximate link spheres
+        #  是否抓取了对象。如果抓取了对象，将 link_pos 张量分为两部分：机器人的连杆位置，抓取对象的位置
         if self.robot.grasped_object is not None:
             n_grasped_object_points = self.robot.grasped_object.n_base_points_for_collision
             link_pos_robot = link_pos[..., :-n_grasped_object_points, :]

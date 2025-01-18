@@ -42,7 +42,7 @@ class RobotPlanar2Link(RobotBase):
     def fk_map_collision_impl(self, q, **kwargs):
         if q.ndim == 1:
             q = q.unsqueeze(0)  # add batch dimension
-        points_along_links = 25
+        points_along_links = 25  #每个连杆上要计算位置的点的数量
         p0, p1, p2 = self.link_positions(q)
 
         link_pos = torch.cat((p0, p1, p2), dim=-2)

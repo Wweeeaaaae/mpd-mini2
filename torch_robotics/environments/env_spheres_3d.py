@@ -12,6 +12,7 @@ from torch_robotics.visualizers.planning_visualizer import create_fig_and_axes
 class EnvSpheres3D(EnvBase):
 
     def __init__(self, name='EnvDense2D', tensor_args=None, **kwargs):
+        #  定义多球体场
         spheres = MultiSphereField(torch.tensor([
                     [-0.4, 0.4, 0.85],
                     [-0.45, -0.35, 0.45],
@@ -23,6 +24,7 @@ class EnvSpheres3D(EnvBase):
                     [0.45, 0.1, 0.9],
                     [0.1, -0.4, 0.0],
                     [0.1, 0.55, 0.35],
+                    #[-0.2, 0.65, 0.35],
                     ]),
                 torch.tensor([
                     0.15,
@@ -34,7 +36,8 @@ class EnvSpheres3D(EnvBase):
                     0.15,
                     0.15,
                     0.15,
-                    0.15
+                    0.15,
+                    #0.15
                 ]),
                 tensor_args=tensor_args)
 

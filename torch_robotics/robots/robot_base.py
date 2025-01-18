@@ -151,6 +151,10 @@ class RobotBase(ABC):
 
     def get_position(self, x):
         return x[..., :self.q_dim]
+    #  高级索引操作，用于从 x 中提取关节位置信息。
+    #  ...：表示选择 x 的所有维度，直到最后一个维度之前。
+    #  :self.q_dim：选择最后一个维度的前 self.q_dim 个元素，其中 self.q_dim 是机器人关节的数量。
+
 
     def get_velocity(self, x):
         vel = x[..., self.q_dim:2 * self.q_dim]

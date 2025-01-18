@@ -29,6 +29,7 @@ class PlanningTask(Task):
             obstacle_cutoff_margin=0.01,
             **kwargs
     ):
+        #  工作空间的最小和最大边界
         super().__init__(**kwargs)
         self.ws_limits = self.env.limits if ws_limits is None else ws_limits
         self.ws_min = self.ws_limits[0]
@@ -36,28 +37,29 @@ class PlanningTask(Task):
 
         # Optional: use an occupancy map for collision checking -- useful for sampling-based algorithms
         # A precomputed collision map is faster when checking for collisions, in comparison to computing the distances
-        # from tasks spaces to objects
+        # from tasks spaces to objects构建占用栅格地图
         self.use_occupancy_map = use_occupancy_map
         if use_occupancy_map:
             self.env.build_occupancy_map(cell_size=cell_size)
 
         ################################################################################################
         # Collision fields
-        # collision field for self-collision
+        # collision field for self-collision自碰撞检测的距离场
         self.df_collision_self = self.robot.df_collision_self
 
-        # collision field for objects
+        # collision field for objects物体碰撞检测的距离场
         self.df_collision_objects = CollisionObjectDistanceField(
             self.robot,
-            df_obj_list_fn=self.env.get_df_obj_list,
-            link_idxs_for_collision_checking=self.robot.link_idxs_for_object_collision_checking,
-            num_interpolated_points=self.robot.num_interpolated_points_for_object_collision_checking,
-            link_margins_for_object_collision_checking_tensor=self.robot.link_margins_for_object_collision_checking_tensor,
-            cutoff_margin=obstacle_cutoff_margin,
-            interpolate_link_pos=not self.robot.use_collision_spheres,
+            df_obj_list_fn=self.env.get_df_obj_list,  #获取环境中物体的列表torch_robotics/environments/env_spheres_3d.py
+            link_idxs_for_collision_checking=self.robot.link_idxs_for_object_collision_checking,  #指定了哪些机器人链接需要进行物体碰撞检测
+            num_interpolated_points=self.robot.num_interpolated_points_for_object_collision_checking,  #指定了在碰撞检测中用于插值的点的数量。插值可以提高碰撞检测的精度
+            link_margins_for_object_collision_checking_tensor=self.robot.link_margins_for_object_collision_checking_tensor,  #机器人链接的碰撞边界或安全距离
+            cutoff_margin=obstacle_cutoff_margin,  #定义碰撞检测的截止边界
+            interpolate_link_pos=not self.robot.use_collision_spheres,  #否需要对机器人链接的位置进行插值
             tensor_args=self.tensor_args
         )
 
+        #  额外物体的碰撞检测
         if self.env.obj_extra_list is not None:
             self.df_collision_extra_objects = CollisionObjectDistanceField(
                 self.robot,
@@ -73,7 +75,7 @@ class PlanningTask(Task):
         else:
             self._collision_fields_extra_objects = []
 
-        # collision field for workspace boundaries
+        # collision field for workspace boundaries工作空间边界的碰撞检测
         self.df_collision_ws_boundaries = CollisionWorkspaceBoundariesDistanceField(
             self.robot,
             link_idxs_for_collision_checking=self.robot.link_idxs_for_object_collision_checking,
@@ -104,23 +106,23 @@ class PlanningTask(Task):
             return self.robot.random_q(**kwargs)
 
     def random_coll_free_q(self, n_samples=1, max_samples=1000, max_tries=1000):
-        # Random position in configuration space not in collision
+        # 生成随机的、不发生碰撞的机器人关节配置
         reject = True
-        samples = torch.zeros((n_samples, self.robot.q_dim), **self.tensor_args)
-        idx_begin = 0
+        samples = torch.zeros((n_samples, self.robot.q_dim), **self.tensor_args)  #self.robot.q_dim 机器人关节的数量。
+        idx_begin = 0  #索引变量，踪 samples 张量中已经填充多少个碰撞自由配置
         for i in range(max_tries):
-            qs = self.robot.random_q(max_samples)
+            qs = self.robot.random_q(max_samples)  #生成 max_samples 个随机的机器人关节配置
             in_collision = self.compute_collision(qs).squeeze()
-            idxs_not_in_collision = torch.argwhere(in_collision == False).squeeze()
+            idxs_not_in_collision = torch.argwhere(in_collision == False).squeeze()  #找出不在碰撞中的配置索引
             if idxs_not_in_collision.nelement() == 0:
                 # all points are in collision
                 continue
             if idxs_not_in_collision.nelement() == 1:
                 idxs_not_in_collision = [idxs_not_in_collision]
-            idx_random = torch.randperm(len(idxs_not_in_collision))[:n_samples]
+            idx_random = torch.randperm(len(idxs_not_in_collision))[:n_samples]  #生成一个从 0 到 len(idxs_not_in_collision)-1 的随机排列的张量，选择n_samples的关节配置
             free_qs = qs[idxs_not_in_collision[idx_random]]
-            idx_end = min(idx_begin + free_qs.shape[0], samples.shape[0])
-            samples[idx_begin:idx_end] = free_qs[:idx_end - idx_begin]
+            idx_end = min(idx_begin + free_qs.shape[0], samples.shape[0])  #计算结果索引
+            samples[idx_begin:idx_end] = free_qs[:idx_end - idx_begin]  #填充碰撞自由配置
             idx_begin = idx_end
             if idx_end >= n_samples:
                 reject = False
@@ -131,7 +133,7 @@ class PlanningTask(Task):
 
         return samples.squeeze()
 
-    def compute_collision(self, x, **kwargs):
+    def compute_collision(self, x, **kwargs):  #碰撞检测函数
         q_pos = self.robot.get_position(x)
         return self._compute_collision_or_cost(q_pos, field_type='occupancy', **kwargs)
 
@@ -139,13 +141,14 @@ class PlanningTask(Task):
         q_pos = self.robot.get_position(x)
         return self._compute_collision_or_cost(q_pos, field_type='sdf', **kwargs)
 
-    def _compute_collision_or_cost(self, q, field_type='occupancy', **kwargs):
+    def _compute_collision_or_cost(self, q, field_type='occupancy', **kwargs):  #真正碰撞检测函数
         # q.shape needs to be reshaped to (batch, horizon, q_dim)
         q_original_shape = q.shape
         b = 1
         h = 1
         collisions = None
         if q.ndim == 1:
+            #  调整输入张量的形状
             q = q.unsqueeze(0).unsqueeze(0)  # add batch and horizon dimensions for interface
             collisions = torch.ones((1, ), **self.tensor_args)
         elif q.ndim == 2:
@@ -160,10 +163,11 @@ class PlanningTask(Task):
             raise NotImplementedError
 
         if self.use_occupancy_map:
+            #  是否使用占用栅格地图（occupancy map）来进行碰撞检测。
             raise NotImplementedError
             # ---------------------------------- For occupancy maps ----------------------------------
             ########################################
-            # Configuration space boundaries
+            # 检查输入配置 q 是否在机器人的关节空间边界内
             idxs_coll_free = torch.argwhere(torch.all(
                 torch.logical_and(torch.greater_equal(q, self.robot.q_min), torch.less_equal(q, self.robot.q_max)),
                 dim=-1))  # I, 2
@@ -176,19 +180,19 @@ class PlanningTask(Task):
             # Task space collisions
             # forward kinematics
             q_try = q[idxs_coll_free[:, 0], idxs_coll_free[:, 1]]  # I, q_dim
-            x_pos = self.robot.fk_map_collision(q_try, pos_only=True)  # I, taskspaces, x_dim
+            x_pos = self.robot.fk_map_collision(q_try, pos_only=True)  # I, taskspaces, x_dim计算末端执行器位置，不计算方向
 
-            # workspace boundaries
+            # 末端执行器是否在边界内
             # configuration is not valid if any points in the tasks spaces is out of workspace boundaries
             idxs_ws_in_boundaries = torch.argwhere(torch.all(torch.all(torch.logical_and(
                 torch.greater_equal(x_pos, self.ws_min), torch.less_equal(x_pos, self.ws_max)), dim=-1),
                 dim=-1)).squeeze()  # I_ws
 
-            idxs_coll_free = idxs_coll_free[idxs_ws_in_boundaries].view(-1, 2)
+            idxs_coll_free = idxs_coll_free[idxs_ws_in_boundaries].view(-1, 2)  #更新碰撞自由的配置索引
 
-            # collision in tasks space
+            # 是否在工作区发生碰撞
             x_pos_in_ws = x_pos[idxs_ws_in_boundaries]  # I_ws, x_dim
-            collisions_pos_x = self.env.occupancy_map.get_collisions(x_pos_in_ws, **kwargs)
+            collisions_pos_x = self.env.occupancy_map.get_collisions(x_pos_in_ws, **kwargs)  #是否与占用栅格地图中的障碍物发生碰撞
             if len(collisions_pos_x.shape) == 1:
                 collisions_pos_x = collisions_pos_x.view(1, -1)
             idxs_taskspace = torch.argwhere(torch.all(collisions_pos_x == 0, dim=-1)).squeeze()
@@ -203,32 +207,33 @@ class PlanningTask(Task):
         else:
             # ---------------------------------- For distance fields ----------------------------------
             ########################################
-            # For distance fields
+            # 基于距离场（distance fields）的碰撞检测
 
-            # forward kinematics
+            # forward kinematics使用正向运动学计算输入配置 q 下机器人末端执行器的位置
             fk_collision_pos = self.robot.fk_map_collision(q)  # batch, horizon, taskspaces, x_dim
 
             ########################
-            # Self collision
+            # Self collision自碰撞成本
             if self.df_collision_self is not None:
                 cost_collision_self = self.df_collision_self.compute_cost(q, fk_collision_pos, field_type=field_type, **kwargs)
             else:
                 cost_collision_self = 0
 
-            # Object collision
+            # Object collision物体碰撞成本
             if self.df_collision_objects is not None:
                 cost_collision_objects = self.df_collision_objects.compute_cost(q, fk_collision_pos, field_type=field_type, **kwargs)
             else:
                 cost_collision_objects = 0
 
-            # Workspace boundaries
+            # Workspace boundaries工作空间边界碰撞成本计算
             if self.df_collision_ws_boundaries is not None:
                 cost_collision_border = self.df_collision_ws_boundaries.compute_cost(q, fk_collision_pos, field_type=field_type, **kwargs)
             else:
                 cost_collision_border = 0
 
+            #  合并碰撞成本
             if field_type == 'occupancy':
-                collisions = cost_collision_self | cost_collision_objects | cost_collision_border
+                collisions = cost_collision_self | cost_collision_objects | cost_collision_border  #任何一种碰撞成本为真（非零），则认为发生了碰撞。
             else:
                 collisions = cost_collision_self + cost_collision_objects + cost_collision_border
 
@@ -247,6 +252,7 @@ class PlanningTask(Task):
         ###############################################################################################################
         # compute collisions on a finer interpolated trajectory
         trajs_interpolated = interpolate_traj_via_points(trajs_new, num_interpolation=num_interpolation)
+        #  对轨迹进行插值，以生成更多的点。这有助于更精确地检测碰撞。
         # Set a low margin for collision checking, which means we allow trajectories to pass very close to objects.
         # While the optimized trajectory via points are not at a 0 margin from the object, the interpolated via points
         # might be. A 0 margin guarantees that we do not discard those trajectories, while ensuring they are not in
@@ -260,7 +266,7 @@ class PlanningTask(Task):
         trajs_coll_idxs = torch.argwhere(trajs_waypoints_collisions.any(dim=-1))
 
         ###############################################################################################################
-        # Check that trajectories that are not in collision are inside the joint limits
+        # 检查未发生碰撞的轨迹是否在joint limit内
         if trajs_free_idxs.nelement() == 0:
             pass
         else:
@@ -268,13 +274,16 @@ class PlanningTask(Task):
                 trajs_free_tmp = trajs[trajs_free_idxs[:, 0], trajs_free_idxs[:, 1], ...]
             else:
                 trajs_free_tmp = trajs[trajs_free_idxs.squeeze(), ...]
+            #  如果 trajs 是四维的（意味着有多个目标或步骤），则使用双重索引；如果是三维的（单个轨迹集合），则使用单层索引。
 
             trajs_free_tmp_position = self.robot.get_position(trajs_free_tmp)
             trajs_free_inside_joint_limits_idxs = torch.logical_and(
                 trajs_free_tmp_position >= self.robot.q_min,
-                trajs_free_tmp_position <= self.robot.q_max).all(dim=-1).all(dim=-1)
-            trajs_free_inside_joint_limits_idxs = torch.atleast_1d(trajs_free_inside_joint_limits_idxs)
-            trajs_free_idxs_try = trajs_free_idxs[torch.argwhere(trajs_free_inside_joint_limits_idxs).squeeze()]
+                trajs_free_tmp_position <= self.robot.q_max).all(dim=-1).all(dim=-1)  #确保每个无碰撞轨迹的每个末端执行器位置都在机器人的关节限制范围内
+            trajs_free_inside_joint_limits_idxs = torch.atleast_1d(trajs_free_inside_joint_limits_idxs)  #判断 trajs_free_inside_joint_limits_idxs 是至少一维的张量
+            trajs_free_idxs_try = trajs_free_idxs[torch.argwhere(trajs_free_inside_joint_limits_idxs).squeeze()]  #获取足机器人关节限制的轨迹的索引
+            #  如果没有任何轨迹满足关节限制，将所有的原始无碰撞轨迹索引标记为有碰撞
+            #  如果有轨迹满足关节限制，那么将不满足关节限制的轨迹索引添加到有碰撞轨迹的索引列表中
             if trajs_free_idxs_try.nelement() == 0:
                 trajs_coll_idxs = trajs_free_idxs.clone()
             else:
@@ -285,7 +294,8 @@ class PlanningTask(Task):
             trajs_free_idxs = trajs_free_idxs_try
 
         ###############################################################################################################
-        # Return trajectories free and in collision
+        #  Return trajectories free and in collision
+        #  据之前计算出的碰撞和无碰撞轨迹的索引，从原始轨迹集合中提取相应的轨迹，并处理这些轨迹以满足特定的维度要求
         if trajs.ndim == 4:
             trajs_free = trajs[trajs_free_idxs[:, 0], trajs_free_idxs[:, 1], ...]
             if trajs_free.ndim == 2:
@@ -310,20 +320,21 @@ class PlanningTask(Task):
             return trajs_coll, trajs_coll_idxs, trajs_free, trajs_free_idxs, trajs_waypoints_collisions
         return trajs_coll, trajs_free
 
+    #  计算无碰撞的轨迹比例
     def compute_fraction_free_trajs(self, trajs, **kwargs):
-        # Compute the fractions of trajs that are collision free
         _, trajs_coll_idxs, _, trajs_free_idxs, _ = self.get_trajs_collision_and_free(trajs, return_indices=True)
         n_trajs_free = trajs_free_idxs.nelement()
         n_trajs_coll = trajs_coll_idxs.nelement()
         return n_trajs_free/(n_trajs_free + n_trajs_coll)
 
+    #  计算发生碰撞的waypoint比例
     def compute_collision_intensity_trajs(self, trajs, **kwargs):
-        # Compute the fraction of waypoints that are in collision
         _, _, _, _, trajs_waypoints_collisions = self.get_trajs_collision_and_free(trajs, return_indices=True)
         return torch.count_nonzero(trajs_waypoints_collisions)/trajs_waypoints_collisions.nelement()
 
+    #  计算成功轨迹数量
     def compute_success_free_trajs(self, trajs, **kwargs):
-        # If at least one trajectory is collision free, then we consider success
+        #  如果至少存在一条轨迹无碰撞，则认为是成功的
         _, trajs_free = self.get_trajs_collision_and_free(trajs)
         if trajs_free is not None:
             if trajs_free.nelement() >= 1:

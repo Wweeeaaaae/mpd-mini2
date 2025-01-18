@@ -65,37 +65,38 @@ class EnvMazeBoxes3D(EnvBase):
             **kwargs
         )
 
+    #  返回RRTConnect算法预先设定的参数
     def get_rrt_connect_params(self, robot=None):
         params = dict(
-            n_iters=10000,
+            n_iters=10000,  #算法的最大迭代次数
             step_size=0.01,
-            n_radius=0.3,
-            n_pre_samples=50000,
-            max_time=30
+            n_radius=0.3,  #邻域半径
+            n_pre_samples=50000,  #预采样的数量
+            max_time=30  #算法的最大运行时间
         )
-        if isinstance(robot, RobotPointMass):
+        if isinstance(robot, RobotPointMass):  #检查传入的 robot 参数是否是 RobotPointMass 类的实例
             return params
         else:
             raise NotImplementedError
 
     def get_gpmp2_params(self, robot=None):
         params = dict(
-            opt_iters=100,
-            num_samples=64,
-            sigma_start=1e-5,
-            sigma_gp=1e-2,
+            opt_iters=100,  #优化迭代次数
+            num_samples=64,  #采样数量，用于优化过程中的高斯过程
+            sigma_start=1e-5,  #不同类型点（起始点、目标点、碰撞点）的高斯过程方差
+            sigma_gp=1e-2,  #路径（或轨迹）的高斯过程方差
             sigma_goal_prior=1e-5,
             sigma_coll=1e-5,
             step_size=5e-1,
-            sigma_start_init=1e-4,
+            sigma_start_init=1e-4,  #初始化时的高斯过程方差
             sigma_goal_init=1e-4,
             sigma_gp_init=0.2,
-            sigma_start_sample=1e-4,
+            sigma_start_sample=1e-4,  #采样时的高斯过程方差
             sigma_goal_sample=1e-4,
             solver_params={
-                'delta': 1e-2,
-                'trust_region': True,
-                'method': 'cholesky',
+                'delta': 1e-2,   #信任域的大小
+                'trust_region': True,  #是否使用信任域方法
+                'method': 'cholesky',  #优化方法
             },
         )
         if isinstance(robot, RobotPointMass):

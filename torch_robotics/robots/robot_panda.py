@@ -212,7 +212,9 @@ class RobotPanda(RobotBase):
             self.df_collision_self = CollisionSelfFieldWrapperSTORM(
                 self, 'robot_self/franka_self_sdf.pt', self.q_dim, tensor_args=self.tensor_args)
 
+    #  前向运动学机械臂链接位置的计算和抓取物体坐标的转换
     def fk_map_collision_impl(self, q, **kwargs):
+        #  输入张量维度处理
         q_orig_shape = q.shape
         if len(q_orig_shape) == 3:
             b, h, d = q_orig_shape
@@ -223,17 +225,18 @@ class RobotPanda(RobotBase):
         else:
             raise NotImplementedError
 
+        #  计算机器人在给定关节角度下的所有链接的姿态，并将这些姿态信息转换为一个张量
         link_pose_dict = self.diff_panda.compute_forward_kinematics_all_links(q, return_dict=True)
         # link_tensor = convert_link_dict_to_tensor(link_pose_dict, self.link_names_for_object_collision_checking)
         link_all_tensor = convert_link_dict_to_tensor(link_pose_dict, self.diff_panda.get_link_names())
 
-        # Transform collision points of the grasp object with the forward kinematics
+        #  将物体坐标系中的碰撞点转换到机器人基座坐标系
         grasped_object_points_in_robot_base_frame = None
         if self.grasped_object:
-            grasped_object_points_in_object_frame = self.grasped_object.base_points_for_collision
-            frame_grasped_object = link_pose_dict[self.link_name_grasped_object]
+            grasped_object_points_in_object_frame = self.grasped_object.base_points_for_collision  #获取抓取物体的碰撞点
+            frame_grasped_object = link_pose_dict[self.link_name_grasped_object]  #获取机械臂末端抓取物体链接的姿态
             # TODO - by default assumes that world frame is the robots base frame
-            grasped_object_points_in_robot_base_frame = frame_grasped_object.transform_point(grasped_object_points_in_object_frame)
+            grasped_object_points_in_robot_base_frame = frame_grasped_object.transform_point(grasped_object_points_in_object_frame)  #转换坐标系
 
         if len(q_orig_shape) == 3:
             link_all_tensor = einops.rearrange(link_all_tensor, "(b h) t d1 d2 -> b h t d1 d2", b=b, h=h)
@@ -243,11 +246,13 @@ class RobotPanda(RobotBase):
             # link_pos = self.get_spheres_centers(link_all_tensor)
         # else:
 
+        #  合并机械臂链接位置和抓取物体的碰撞点
         link_pos = link_pos_from_link_tensor(link_all_tensor)  # (batch horizon), taskspaces, x_dim
         if grasped_object_points_in_robot_base_frame is not None:
             if len(q_orig_shape) == 3:
                 grasped_object_points_in_robot_base_frame = einops.rearrange(grasped_object_points_in_robot_base_frame, "(b h) d1 d2 -> b h d1 d2", b=b, h=h)
-            link_pos = torch.cat((link_pos, grasped_object_points_in_robot_base_frame), dim=-2)
+                #  调整抓取物体碰撞点的形状
+            link_pos = torch.cat((link_pos, grasped_object_points_in_robot_base_frame), dim=-2)  #合并链接位置和抓取物体的碰撞点
 
         return link_pos
 

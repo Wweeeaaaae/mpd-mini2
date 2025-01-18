@@ -83,7 +83,7 @@ class TimerCUDA(object):
 
     @property
     def elapsed(self):
-        """ Return the current elapsed time since start
+        """ 返回自启动以来的当前已用时间
 
         If the `elapsed` property is called in the context manager scope,
         the elapsed time between start and property access is returned.

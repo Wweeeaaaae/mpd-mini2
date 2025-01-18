@@ -10,8 +10,8 @@ import matplotlib.collections as mcoll
 
 
 def create_fig_and_axes(dim=2):
-    fig = plt.figure(layout='tight')
-    if dim == 3:
+    fig = plt.figure(layout='tight')  #创建图形
+    if dim == 3:  #创建坐标轴
         ax = fig.add_subplot(projection='3d')
     else:
         ax = fig.add_subplot()
@@ -129,6 +129,7 @@ class PlanningVisualizer:
 
         create_animation_video(fig, animate_fn, n_frames=n_frames, **kwargs)
 
+    #  绘制关节空间状态轨迹
     def plot_joint_space_state_trajectories(
             self,
             fig=None, axs=None,
@@ -141,14 +142,15 @@ class PlanningVisualizer:
     ):
         if trajs is None:
             return
-        trajs_np = to_numpy(trajs)
+        trajs_np = to_numpy(trajs)  #将轨迹转换为NumPy数组
 
         assert trajs_np.ndim == 3
         B, H, D = trajs_np.shape
 
-        # Separate trajectories in collision and free (not in collision)
+        #  将碰撞轨迹和自由轨迹（非碰撞）分开
         trajs_coll, trajs_free = self.task.get_trajs_collision_and_free(trajs)
 
+        #  分离碰撞轨迹，无碰撞轨迹位置和速度
         trajs_coll_pos_np = to_numpy([])
         trajs_coll_vel_np = to_numpy([])
         if trajs_coll is not None:
@@ -161,6 +163,7 @@ class PlanningVisualizer:
             trajs_free_pos_np = to_numpy(self.robot.get_position(trajs_free))
             trajs_free_vel_np = to_numpy(self.robot.get_velocity(trajs_free))
 
+        #  分离起始状态，结束状态位置和速度
         if pos_start_state is not None:
             pos_start_state = to_numpy(pos_start_state)
         if vel_start_state is not None:
@@ -170,22 +173,24 @@ class PlanningVisualizer:
         if vel_goal_state is not None:
             vel_goal_state = to_numpy(vel_goal_state)
 
+        #  绘图
         if fig is None or axs is None:
             fig, axs = plt.subplots(self.robot.q_dim, 2, squeeze=False)
         axs[0, 0].set_title('Position')
         axs[0, 1].set_title('Velocity')
         axs[-1, 0].set_xlabel('Timesteps')
         axs[-1, 1].set_xlabel('Timesteps')
-        timesteps = np.arange(H).reshape(1, -1)
-        for i, ax in enumerate(axs):
-            for trajs_filtered, color in zip([(trajs_coll_pos_np, trajs_coll_vel_np), (trajs_free_pos_np, trajs_free_vel_np)],
+        timesteps = np.arange(H).reshape(1, -1)  #准备时间步
+        for i, ax in enumerate(axs):  #遍历各轴关节，i是轴索引，ax是轴对象
+            for trajs_filtered, color in zip([(trajs_coll_pos_np, trajs_coll_vel_np), (trajs_free_pos_np, trajs_free_vel_np)],  #遍历轨迹数据和颜色
                                              ['black', 'orange']):
-                # Positions and velocities
-                for j, trajs_filtered_ in enumerate(trajs_filtered):
+                #  绘制位置和速度
+                for j, trajs_filtered_ in enumerate(trajs_filtered):  #j用来区分位置和速度的索引
                     if trajs_filtered_.size > 0:
                         timesteps_ = np.repeat(timesteps, trajs_filtered_.shape[0], axis=0)
                         plot_multiline(ax[j], timesteps_, trajs_filtered_[..., i], color=color, **kwargs)
 
+            #  绘制最佳轨迹位置和速度
             if traj_best is not None:
                 traj_best_pos = self.robot.get_position(traj_best)
                 traj_best_vel = self.robot.get_velocity(traj_best)
@@ -194,7 +199,7 @@ class PlanningVisualizer:
                 plot_multiline(ax[0], timesteps, traj_best_pos_np[..., i].reshape(1, -1), color='blue', **kwargs)
                 plot_multiline(ax[1], timesteps, traj_best_vel_np[..., i].reshape(1, -1), color='blue', **kwargs)
 
-            # Start and goal
+            #  标记起始和目标速度和状态
             if pos_start_state is not None:
                 ax[0].scatter(0, pos_start_state[i], color='green')
             if vel_start_state is not None:
@@ -203,38 +208,40 @@ class PlanningVisualizer:
                 ax[0].scatter(H-1, pos_goal_state[i], color='purple')
             if vel_goal_state is not None:
                 ax[1].scatter(H-1, vel_goal_state[i], color='purple')
-            # Y label
+            #  Y轴标签为各关节
             ax[0].set_ylabel(f'q_{i}')
-            # Set limits
+            # 设置绘图轴的Y轴（垂直轴）的显示范围
             if set_joint_limits:
                 ax[0].set_ylim(self.robot.q_min_np[i], self.robot.q_max_np[i])
                 # ax[1].set_ylim(self.robot.q_vel_min_np[i], self.robot.q_vel_max_np[i])
 
         return fig, axs
 
+    #  创建动画，展示运动规划过程中关节空间状态轨迹的优化迭代
     def animate_opt_iters_joint_space_state(
             self, trajs=None, traj_best=None, n_frames=10, **kwargs
     ):
-        # trajs: steps, batch, horizon, q_dim
+
         if trajs is None:
             return
 
-        assert trajs.ndim == 4
+        assert trajs.ndim == 4  # trajs: steps, batch, horizon, q_dim状态维度
         S, B, H, D = trajs.shape
 
-        idxs = np.round(np.linspace(0, S - 1, n_frames)).astype(int)
+        idxs = np.round(np.linspace(0, S - 1, n_frames)).astype(int)  #使用 np.linspace 在0到S-1之间均匀地生成n_frames个数，四舍五入取整，得到要展示的帧的索引
         trajs_selection = trajs[idxs]
 
-        fig, axs = self.plot_joint_space_state_trajectories(trajs=trajs_selection[0], **kwargs)
+        fig, axs = self.plot_joint_space_state_trajectories(trajs=trajs_selection[0], **kwargs)  #创建图形和坐标轴，并绘制第一帧的轨迹
 
+        #  更新动画每一帧
         def animate_fn(i):
-            [ax.clear() for ax in axs.ravel()]
-            fig.suptitle(f"iter: {idxs[i]}/{S-1}")
-            self.plot_joint_space_state_trajectories(
+            [ax.clear() for ax in axs.ravel()]  #遍历所有的坐标轴 axs，并清除每个坐标轴上的内容。ravel()将 axs 转换为一维数组，以便于遍历
+            fig.suptitle(f"iter: {idxs[i]}/{S-1}")  #设置图形标题
+            self.plot_joint_space_state_trajectories(  #绘制当前帧轨迹
                 fig=fig, axs=axs,
                 trajs=trajs_selection[i], **kwargs
             )
-            if i == n_frames -1 and traj_best is not None:
+            if i == n_frames -1 and traj_best is not None:  #如果当前帧是最后一帧且最佳轨迹存在，则绘制最佳轨迹
                 self.plot_joint_space_state_trajectories(
                     fig=fig, axs=axs,
                     trajs=trajs_selection[i],
@@ -244,24 +251,27 @@ class PlanningVisualizer:
         create_animation_video(fig, animate_fn, n_frames=n_frames, **kwargs)
 
 
+#  生成动画并保存
 def create_animation_video(fig, animate_fn, anim_time=5, n_frames=100, video_filepath='video.mp4', **kwargs):
+    #  anim_time：动画的总时长（秒）  n_frames：动画中的总帧数  video_filepath：视频文件的保存路径
     str_start = "Creating animation"
     print(f'{str_start}...')
-    ani = FuncAnimation(
+    ani = FuncAnimation(  #创建一个动画对象
         fig,
         animate_fn,
         frames=n_frames,
-        interval=anim_time * 1000 / n_frames,
-        repeat=False
+        interval=anim_time * 1000 / n_frames,  #每帧之间的时间间隔（毫秒）
+        repeat=False  #是否重复播放动画
     )
     print(f'...finished {str_start}')
 
     str_start = "Saving video..."
     print(f'{str_start}...')
-    ani.save(os.path.join(video_filepath), fps=max(1, int(n_frames / anim_time)), dpi=90)
+    ani.save(os.path.join(video_filepath), fps=max(1, int(n_frames / anim_time)), dpi=90)  #保存视频
     print(f'...finished {str_start}')
 
 
+#  绘制图像
 def plot_multiline(ax, X, Y, color='blue', linestyle='solid', **kwargs):
     segments = np.stack((X, Y), axis=-1)
     line_segments = mcoll.LineCollection(segments, colors=[color] * len(segments), linestyle=linestyle)

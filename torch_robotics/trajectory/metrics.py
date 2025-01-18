@@ -4,6 +4,7 @@ import torch
 from torch_robotics.torch_utils.torch_utils import to_numpy
 
 
+#  计算轨迹路径长度，计算轨迹位置在时间维度上的差分，再计算其欧几里得范数，求和
 def compute_path_length(trajs, robot):
     assert trajs.ndim == 3  # batch, horizon, state_dim
     trajs_pos = robot.get_position(trajs)
@@ -24,12 +25,13 @@ def compute_variance_waypoints(trajs, robot):
     return sum_var_waypoints
 
 
+#  计算轨迹的平滑度，平滑度是通过计算轨迹速度的时间差分的范数来衡量的
 def compute_smoothness(trajs, robot, trajs_vel=None):
     if trajs_vel is None:
         assert trajs.ndim == 3
         trajs_vel = robot.get_velocity(trajs)
     else:
         assert trajs_vel.ndim == 3
-    smoothness = torch.linalg.norm(torch.diff(trajs_vel, dim=-2), dim=-1)
+    smoothness = torch.linalg.norm(torch.diff(trajs_vel, dim=-2), dim=-1)  #计算轨迹速度在时间维度（倒数第二个维度）上的差分的范数
     smoothness = smoothness.sum(-1)  # sum over trajectory horizon
     return smoothness
