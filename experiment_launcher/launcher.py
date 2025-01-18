@@ -29,7 +29,7 @@ class Launcher(object):
         Constructor.
 
         Args:
-            exp_name (str): name of the experiment
+            exp_name (str): name of the experiment实验名称
             exp_file (str): name of the python module running a single experiment (relative path)
             n_seeds (int): number of seeds for each experiment configuration
             n_cores (int): number of cpu cores
@@ -67,15 +67,18 @@ class Launcher(object):
 
         self._experiment_list = list()
 
+        #  实验名称 + 时间戳
         if use_timestamp:
             self._exp_name += datetime.datetime.now().strftime('_%Y-%m-%d_%H-%M-%S')
 
+        #  创建实验结果保存目录
         base_dir = './logs' if base_dir is None else base_dir
         self._exp_dir_local = os.path.join(base_dir, self._exp_name)
 
-        # tracks the results directories
+        #  追踪结果目录
         self._results_dir_l = []
 
+        #  创建保存在 SLURM 集群上的实验结果目录（类似于资源管理器，便于不同计算节点访问工作）
         self._exp_dir_slurm = self._exp_dir_local
         if os.getenv("USER"):
             scratch_dir = os.path.join('/work', 'scratch', os.getenv('USER'))
@@ -83,17 +86,18 @@ class Launcher(object):
                 self._exp_dir_slurm = os.path.join(scratch_dir, self._exp_name)
         os.makedirs(self._exp_dir_slurm)
 
-        # directories for slurm sbatch files and logs
+        #  用于存放 slurm sbatch 文件和日志目录，
         self._exp_dir_slurm_files = os.path.join(self._exp_dir_slurm, "slurm_files")
         self._exp_dir_slurm_logs = os.path.join(self._exp_dir_slurm, "slurm_logs")
 
-        self._compact_dirs = compact_dirs
+        self._compact_dirs = compact_dirs  #目录命名只使用参数值本身
 
+    #  将用户提供的实验配置（以关键字参数的形式）添加到_experiment_list中
     def add_experiment(self, **kwargs):
         self._experiment_list.append(deepcopy(kwargs))
 
-    def run(self, local, test=False, sequential=False):
-        self._check_experiments_results_directories()
+    def run(self, local, test=False, sequential=False):  #sequential是否顺序执行实验
+        self._check_experiments_results_directories()  #检查结果目录是否冲突
         if local:
             if sequential:
                 self._run_sequential(test)
@@ -201,6 +205,7 @@ echo "...done."
 
         return full_path
 
+    #  在SLURM集群上运行实验
     def _run_slurm(self, test):
         # Create slurm directories for sbatch and log files
         os.makedirs(self._exp_dir_slurm_files)
@@ -230,11 +235,12 @@ echo "...done."
             else:
                 os.system(command)
 
+    #  在本地运行实验
     def _run_local(self, test):
-        if not test:
+        if not test:  #非测试状态下创建存放结果目录
             os.makedirs(self._exp_dir_local, exist_ok=True)
 
-        module = import_module(self._exp_file)
+        module = import_module(self._exp_file)  #train模块
         experiment = module.experiment
 
         if test:
@@ -243,16 +249,17 @@ echo "...done."
             def experiment_wrapper(params):
                 try:
                     experiment(**params)
-                except Exception:
+                except Exception:  # 如果发生异常，打印参数和异常信息
                     print("Experiment failed with parameters:")
                     print(params)
                     traceback.print_exc()
 
-            params_dict = get_experiment_default_params(experiment)
+            params_dict = get_experiment_default_params(experiment)  #获取实验参数默认值
 
             Parallel(n_jobs=self._n_exps_in_parallel)(delayed(experiment_wrapper)(deepcopy(params))
-                                                      for params in self._generate_exp_params(params_dict))
+                                                      for params in self._generate_exp_params(params_dict))  #并行地运行这些实验
 
+    #  本地顺序运行
     def _run_sequential(self, test):
         if not test:
             os.makedirs(self._exp_dir_local, exist_ok=True)
@@ -304,6 +311,7 @@ echo "...done."
                 results_dir = os.path.join(results_dir, subfolder)
         return results_dir
 
+    #  每个实验配置生成一系列的参数字典
     def _generate_exp_params(self, default_params_dict):
         seeds = np.arange(self._n_seeds)
         for exp in self._experiment_list:
@@ -367,7 +375,7 @@ echo "...done."
 
 
 def get_experiment_default_params(func):
-    signature = inspect.signature(func)
+    signature = inspect.signature(func)  #获取函数签名信息
     defaults = {}
     for k, v in signature.parameters.items():
         if v.default is not inspect.Parameter.empty:

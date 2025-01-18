@@ -4,7 +4,7 @@ from functools import wraps, partial
 
 from experiment_launcher.utils import save_args, start_wandb, create_results_dir
 
-
+#  装饰器
 def wrapper_single_experiment(exp_func, save_args_yaml=False, use_logging=False,
                               make_dirs_with_seed=True, print_exp_args=False):
     @wraps(exp_func)
