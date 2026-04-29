@@ -51,7 +51,8 @@ def is_local():
 
 def start_wandb(
         wandb_enabled=False,
-        wandb_entity='experiment_launcher',
+        wandb_mode='disabled',
+        wandb_entity='',
         wandb_project='test_experiment_launcher',
         wandb_group=None,
         wandb_run_name=None,
@@ -61,17 +62,31 @@ def start_wandb(
     # workaround to make sure that wandb does not crash
     os.environ["WANDB__SERVICE_WAIT"] = "600"
 
-    if not wandb_enabled:
+    # Backward compatibility:
+    # - old code may only pass wandb_enabled
+    # - current training scripts pass wandb_mode in {"online", "offline", "disabled"}
+    if wandb_mode is None:
+        wandb_mode = 'online' if wandb_enabled else 'disabled'
+
+    if wandb_mode not in {'online', 'offline', 'disabled'}:
+        raise ValueError(f'Unsupported wandb_mode: {wandb_mode}')
+
+    if wandb_mode == 'disabled':
         return wandb.init(mode="disabled", reinit=True)
 
     init = {
-        "entity": wandb_entity,
         "project": wandb_project,
-        "group": wandb_group,
-        "name": wandb_run_name,
+        "mode": wandb_mode,
         "reinit": True,
         "notes": datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),
     }
+
+    if wandb_entity:
+        init["entity"] = wandb_entity
+    if wandb_group:
+        init["group"] = wandb_group
+    if wandb_run_name:
+        init["name"] = wandb_run_name
 
     return wandb.init(**init)
 
