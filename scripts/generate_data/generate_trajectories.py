@@ -149,22 +149,25 @@ def generate_collision_free_trajectories(
         pickle.dump(results_data_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     # -------------------------------- 可视化 ---------------------------------
-    planner_visualizer = PlanningVisualizer(task=task)
+    if trajs_last_iter_free.nelement() > 0:
+        planner_visualizer = PlanningVisualizer(task=task)
 
-    trajs = trajs_last_iter_free
-    pos_trajs = robot.get_position(trajs)
-    start_state_pos = pos_trajs[0][0]
-    goal_state_pos = pos_trajs[0][-1]
+        trajs = trajs_last_iter_free
+        pos_trajs = robot.get_position(trajs)
+        start_state_pos = pos_trajs[0][0]
+        goal_state_pos = pos_trajs[0][-1]
 
-    fig, axs = planner_visualizer.plot_joint_space_state_trajectories(  #绘制关节空间状态轨迹
-        trajs=trajs,
-        pos_start_state=start_state_pos, pos_goal_state=goal_state_pos,
-        vel_start_state=torch.zeros_like(start_state_pos), vel_goal_state=torch.zeros_like(goal_state_pos),
-    )
+        fig, axs = planner_visualizer.plot_joint_space_state_trajectories(  #绘制关节空间状态轨迹
+            trajs=trajs,
+            pos_start_state=start_state_pos, pos_goal_state=goal_state_pos,
+            vel_start_state=torch.zeros_like(start_state_pos), vel_goal_state=torch.zeros_like(goal_state_pos),
+        )
 
-    # 保存图像
-    fig.savefig(os.path.join(results_dir, f'trajectories.png'), dpi=300)
-    plt.close(fig)
+        # 保存图像
+        fig.savefig(os.path.join(results_dir, f'trajectories.png'), dpi=300)
+        plt.close(fig)
+    else:
+        print('No free trajectories found in the final iteration; skipping trajectories.png')
 
     #  返回最后迭代碰撞，非碰撞轨迹数目
     num_trajectories_coll, num_trajectories_free = len(trajs_last_iter_coll), len(trajs_last_iter_free)

@@ -6,7 +6,8 @@
 	url = https://github.com/anindex/motion_planning_baselines.git
 [submodule "deps/torch_robotics"]
 	path = deps/torch_robotics
-	url = https://github.com/anindex/torch_robotics.git
+	url = https://github.com/Wweeeaaaae/mpd-mini2.git
+	branch = torch_robotics-mini2
 [submodule "deps/storm"]
 	path = deps/storm
 	url = https://github.com/jacarvalho/storm.git
