@@ -10,6 +10,7 @@ from .env_narrow_passage_dense_2d_extra_objects import *
 from .env_planar2link import *
 from .env_spheres_3d import *
 from .env_spheres_3d_extra_objects import *
+from .env_spheres_3d_mini2 import *
+from .env_spheres_3d_mini2_extra_objects import *
 from .env_square_2d import *
 from .env_table_shelf import *
-

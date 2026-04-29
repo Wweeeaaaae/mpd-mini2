@@ -1,0 +1,351 @@
+<?xml version="1.0" ?>
+<robot name="Mini2" version="1.0">
+   <link name="base_link">
+      <inertial>
+         <origin xyz="0.00018021 -7.7645e-06 0.013095" rpy="0.0 0.0 0.0"/>
+         <mass value="0.28093"/>
+         <inertia ixx="0.00024785" ixy="-1.6069e-09" ixz="5.2021e-07" iyy="0.0002461" iyz="-2.3227e-08" izz="0.00045567"/>
+      </inertial>
+      <visual>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <geometry>
+            <mesh filename="package://Mini2/meshes/base_link.STL"/>
+         </geometry>
+         <material name="">
+            <color rgba="1.0 1.0 1.0 1.0"/>
+         </material>
+      </visual>
+      <collision>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <geometry>
+            <mesh filename="package://Mini2/meshes/base_link.STL"/>
+         </geometry>
+      </collision>
+   </link>
+   <link name="1_Link">
+      <inertial>
+         <origin xyz="0.00022098 -0.013411 0.097344" rpy="0.0 0.0 0.0"/>
+         <mass value="1.3529"/>
+         <inertia ixx="0.0055002" ixy="1.5803e-06" ixz="-1.182e-05" iyy="0.0054322" iyz="0.00069151" izz="0.0016731"/>
+      </inertial>
+      <visual>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <geometry>
+            <mesh filename="package://Mini2/meshes/1_Link.STL"/>
+         </geometry>
+         <material name="">
+            <color rgba="1.0 1.0 1.0 1.0"/>
+         </material>
+      </visual>
+      <collision>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <geometry>
+            <mesh filename="package://Mini2/meshes/1_Link.STL"/>
+         </geometry>
+      </collision>
+   </link>
+   <joint name="1_joint" type="revolute">
+      <origin xyz="0.0 0.0 0.0278" rpy="0.0 0.0 0.0"/>
+      <axis xyz="0.0 0.0 -1.0"/>
+      <parent link="base_link"/>
+      <child link="1_Link"/>
+      <limit effort="10.0" lower="-6.2832" upper="6.2832" velocity="3.1416"/>
+   </joint>
+   <link name="2_Link">
+      <inertial>
+         <origin xyz="0.0905583169157203 -2.55226272042105e-05 0.00606678590030608" rpy="0.0 0.0 0.0"/>
+         <mass value="1.13763168278175"/>
+         <inertia ixx="0.00215015112517415" ixy="-2.036750088694e-06" ixz="-0.00254396818621707" iyy="0.00820269535958294" iyz="-9.88247617910637e-07" izz="0.00725417648761589"/>
+      </inertial>
+      <visual>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <geometry>
+            <mesh filename="package://Mini2/meshes/2_Link.STL"/>
+         </geometry>
+         <material name="">
+            <color rgba="1.0 1.0 1.0 1.0"/>
+         </material>
+      </visual>
+      <collision>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <geometry>
+            <mesh filename="package://Mini2/meshes/2_Link.STL"/>
+         </geometry>
+      </collision>
+   </link>
+   <joint name="2_joint" type="revolute">
+      <origin xyz="-0.00027519 0.016498 0.159" rpy="1.5541 -1.5708 0.0"/>
+      <axis xyz="0.0 0.0 1.0"/>
+      <parent link="1_Link"/>
+      <child link="2_Link"/>
+      <limit effort="10.0" lower="-2.0944" upper="2.0944" velocity="3.1416"/>
+   </joint>
+   <link name="3_Link">
+      <inertial>
+         <origin xyz="4.11106365322683e-05 -0.0421847129588264 0.0339847052350974" rpy="0.0 0.0 0.0"/>
+         <mass value="0.811073594835725"/>
+         <inertia ixx="0.0022134286768224" ixy="-1.57218738662767e-06" ixz="8.87307794874241e-07" iyy="0.000702584119444711" iyz="-0.000224935963904111" izz="0.00211728816376388"/>
+      </inertial>
+      <visual>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <geometry>
+            <mesh filename="package://Mini2/meshes/3_Link.STL"/>
+         </geometry>
+         <material name="">
+            <color rgba="1.0 1.0 1.0 1.0"/>
+         </material>
+      </visual>
+      <collision>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <geometry>
+            <mesh filename="package://Mini2/meshes/3_Link.STL"/>
+         </geometry>
+      </collision>
+   </link>
+   <joint name="3_joint" type="revolute">
+      <origin xyz="0.21 0.0 0.032" rpy="-3.1416 0.0 -1.5708"/>
+      <axis xyz="0.0 0.0 -1.0"/>
+      <parent link="2_Link"/>
+      <child link="3_Link"/>
+      <limit effort="10.0" lower="-2.1816" upper="2.1816" velocity="3.1416"/>
+   </joint>
+   <link name="4_Link">
+      <inertial>
+         <origin xyz="-0.00043559 0.025939 0.045272" rpy="0.0 0.0 0.0"/>
+         <mass value="0.30891"/>
+         <inertia ixx="0.00048581" ixy="3.2945e-07" ixz="1.8297e-06" iyy="0.0004663" iyz="-0.00011074" izz="0.00023489"/>
+      </inertial>
+      <visual>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <geometry>
+            <mesh filename="package://Mini2/meshes/4_Link.STL"/>
+         </geometry>
+         <material name="">
+            <color rgba="1.0 1.0 1.0 1.0"/>
+         </material>
+      </visual>
+      <collision>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <geometry>
+            <mesh filename="package://Mini2/meshes/4_Link.STL"/>
+         </geometry>
+      </collision>
+   </link>
+   <joint name="4_joint" type="revolute">
+      <origin xyz="0.0 -0.1303 0.0215" rpy="-1.5708 -0.016679 3.1416"/>
+      <axis xyz="0.0 0.0 -1.0"/>
+      <parent link="3_Link"/>
+      <child link="4_Link"/>
+      <limit effort="10.0" lower="-6.2832" upper="6.2832" velocity="3.1416"/>
+   </joint>
+   <link name="5_Link">
+      <inertial>
+         <origin xyz="1.114e-06 -0.044544 0.031299" rpy="0.0 0.0 0.0"/>
+         <mass value="0.69161"/>
+         <inertia ixx="0.0016775" ixy="1.4772e-07" ixz="-2.7701e-08" iyy="0.00053632" iyz="-0.00016462" izz="0.001608"/>
+      </inertial>
+      <visual>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <geometry>
+            <mesh filename="package://Mini2/meshes/5_Link.STL"/>
+         </geometry>
+         <material name="">
+            <color rgba="1.0 1.0 1.0 1.0"/>
+         </material>
+      </visual>
+      <collision>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <geometry>
+            <mesh filename="package://Mini2/meshes/5_Link.STL"/>
+         </geometry>
+      </collision>
+   </link>
+   <joint name="5_joint" type="revolute">
+      <origin xyz="-0.00035108 0.021047 0.0802" rpy="-1.5708 0.0 -3.1249"/>
+      <axis xyz="0.0 0.0 -1.0"/>
+      <parent link="4_Link"/>
+      <child link="5_Link"/>
+      <limit effort="10.0" lower="-2.0944" upper="2.0944" velocity="3.1416"/>
+   </joint>
+   <link name="6_Link">
+      <inertial>
+         <origin xyz="-2.1542e-05 3.5464e-05 -0.012293" rpy="0.0 0.0 0.0"/>
+         <mass value="0.14776"/>
+         <inertia ixx="6.7699e-05" ixy="-7.6732e-07" ixz="-1.213e-07" iyy="6.6856e-05" iyz="-2.2354e-09" izz="0.00010394"/>
+      </inertial>
+      <visual>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <geometry>
+            <mesh filename="package://Mini2/meshes/6_Link.STL"/>
+         </geometry>
+         <material name="">
+            <color rgba="1.0 1.0 1.0 1.0"/>
+         </material>
+      </visual>
+      <collision>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <geometry>
+            <mesh filename="package://Mini2/meshes/6_Link.STL"/>
+         </geometry>
+      </collision>
+   </link>
+   <joint name="6_joint" type="revolute">
+      <origin xyz="0.0 -0.1513 0.02105" rpy="-1.5708 -0.016679 3.1416"/>
+      <axis xyz="0.0 0.0 -1.0"/>
+      <parent link="5_Link"/>
+      <child link="6_Link"/>
+      <limit effort="10.0" lower="-6.2832" upper="6.2832" velocity="3.1416"/>
+   </joint>
+   <joint name="joint_base_link_sphere_0" type="fixed">
+      <origin xyz="0.0 0.0 0.015" rpy="0 0 0"/>
+      <parent link="base_link"/>
+      <child link="base_link_0"/>
+   </joint>
+   <link name="base_link_0">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+   <joint name="joint_1_Link_sphere_0" type="fixed">
+      <origin xyz="0.0 -0.01 0.035" rpy="0 0 0"/>
+      <parent link="1_Link"/>
+      <child link="1_Link_0"/>
+   </joint>
+   <link name="1_Link_0">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+   <joint name="joint_1_Link_sphere_1" type="fixed">
+      <origin xyz="0.0 -0.01 0.105" rpy="0 0 0"/>
+      <parent link="1_Link"/>
+      <child link="1_Link_1"/>
+   </joint>
+   <link name="1_Link_1">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+   <joint name="joint_1_Link_sphere_2" type="fixed">
+      <origin xyz="0.0 -0.01 0.175" rpy="0 0 0"/>
+      <parent link="1_Link"/>
+      <child link="1_Link_2"/>
+   </joint>
+   <link name="1_Link_2">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+   <joint name="joint_2_Link_sphere_0" type="fixed">
+      <origin xyz="-0.02 0.0 0.01" rpy="0 0 0"/>
+      <parent link="2_Link"/>
+      <child link="2_Link_0"/>
+   </joint>
+   <link name="2_Link_0">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+   <joint name="joint_2_Link_sphere_1" type="fixed">
+      <origin xyz="0.04 0.0 0.01" rpy="0 0 0"/>
+      <parent link="2_Link"/>
+      <child link="2_Link_1"/>
+   </joint>
+   <link name="2_Link_1">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+   <joint name="joint_2_Link_sphere_2" type="fixed">
+      <origin xyz="0.1 0.0 0.01" rpy="0 0 0"/>
+      <parent link="2_Link"/>
+      <child link="2_Link_2"/>
+   </joint>
+   <link name="2_Link_2">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+   <joint name="joint_2_Link_sphere_3" type="fixed">
+      <origin xyz="0.16 0.0 0.01" rpy="0 0 0"/>
+      <parent link="2_Link"/>
+      <child link="2_Link_3"/>
+   </joint>
+   <link name="2_Link_3">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+   <joint name="joint_2_Link_sphere_4" type="fixed">
+      <origin xyz="0.22 0.0 0.01" rpy="0 0 0"/>
+      <parent link="2_Link"/>
+      <child link="2_Link_4"/>
+   </joint>
+   <link name="2_Link_4">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+   <joint name="joint_3_Link_sphere_0" type="fixed">
+      <origin xyz="0.0 -0.105 0.03" rpy="0 0 0"/>
+      <parent link="3_Link"/>
+      <child link="3_Link_0"/>
+   </joint>
+   <link name="3_Link_0">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+   <joint name="joint_3_Link_sphere_1" type="fixed">
+      <origin xyz="0.0 -0.06 0.035" rpy="0 0 0"/>
+      <parent link="3_Link"/>
+      <child link="3_Link_1"/>
+   </joint>
+   <link name="3_Link_1">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+   <joint name="joint_3_Link_sphere_2" type="fixed">
+      <origin xyz="0.0 -0.015 0.035" rpy="0 0 0"/>
+      <parent link="3_Link"/>
+      <child link="3_Link_2"/>
+   </joint>
+   <link name="3_Link_2">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+   <joint name="joint_4_Link_sphere_0" type="fixed">
+      <origin xyz="0.0 0.01 0.025" rpy="0 0 0"/>
+      <parent link="4_Link"/>
+      <child link="4_Link_0"/>
+   </joint>
+   <link name="4_Link_0">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+   <joint name="joint_4_Link_sphere_1" type="fixed">
+      <origin xyz="0.0 0.02 0.075" rpy="0 0 0"/>
+      <parent link="4_Link"/>
+      <child link="4_Link_1"/>
+   </joint>
+   <link name="4_Link_1">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+   <joint name="joint_4_Link_sphere_2" type="fixed">
+      <origin xyz="0.0 0.02 0.105" rpy="0 0 0"/>
+      <parent link="4_Link"/>
+      <child link="4_Link_2"/>
+   </joint>
+   <link name="4_Link_2">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+   <joint name="joint_5_Link_sphere_0" type="fixed">
+      <origin xyz="0.0 -0.1 0.03" rpy="0 0 0"/>
+      <parent link="5_Link"/>
+      <child link="5_Link_0"/>
+   </joint>
+   <link name="5_Link_0">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+   <joint name="joint_5_Link_sphere_1" type="fixed">
+      <origin xyz="0.0 -0.06 0.03" rpy="0 0 0"/>
+      <parent link="5_Link"/>
+      <child link="5_Link_1"/>
+   </joint>
+   <link name="5_Link_1">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+   <joint name="joint_5_Link_sphere_2" type="fixed">
+      <origin xyz="0.0 -0.02 0.03" rpy="0 0 0"/>
+      <parent link="5_Link"/>
+      <child link="5_Link_2"/>
+   </joint>
+   <link name="5_Link_2">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+   <joint name="joint_6_Link_sphere_0" type="fixed">
+      <origin xyz="0.0 0.0 -0.012" rpy="0 0 0"/>
+      <parent link="6_Link"/>
+      <child link="6_Link_0"/>
+   </joint>
+   <link name="6_Link_0">
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+   </link>
+</robot>

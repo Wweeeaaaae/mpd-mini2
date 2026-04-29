@@ -1,0 +1,53 @@
+<mujoco model="Mini2">
+    <compiler angle="radian" meshdir="../meshes/" />
+    <size njmax="500" nconmax="100" />
+    <asset>
+        <mesh name="base_link" file="base_link.STL" />
+        <mesh name="1_Link" file="1_Link.STL" />
+        <mesh name="2_Link" file="2_Link.STL" />
+        <mesh name="3_Link" file="3_Link.STL" />
+        <mesh name="4_Link" file="4_Link.STL" />
+        <mesh name="5_Link" file="5_Link.STL" />
+        <mesh name="6_Link" file="6_Link.STL" />
+    </asset>
+    <worldbody>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" mesh="base_link" />
+        <geom type="mesh" rgba="1 1 1 1" mesh="base_link" />
+        <body name="1_Link" pos="0 0 0.0278">
+            <inertial pos="0.00022098 -0.013411 0.097344" quat="0.700958 0.0630153 -0.0614745 0.707749" mass="1.3529" diaginertia="0.00555538 0.00550023 0.00154989" />
+            <joint name="1_joint" pos="0 0 0" axis="0 0 -1" limited="true" range="-6.2832 6.2832" />
+            <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" mesh="1_Link" />
+            <geom type="mesh" rgba="1 1 1 1" mesh="1_Link" />
+            <body name="2_Link" pos="-0.00027519 0.016498 0.159" quat="0.504156 0.495808 -0.504158 0.495809">
+                <inertial pos="0.0905583 -2.55226e-05 0.00606679" quat="-0.000635344 0.555898 -0.000233546 0.83125" mass="1.13763" diaginertia="0.00830557 0.0082027 0.00109876" />
+                <joint name="2_joint" pos="0 0 0" axis="0 0 1" limited="true" range="-2.0944 2.0944" />
+                <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" mesh="2_Link" />
+                <geom type="mesh" rgba="1 1 1 1" mesh="2_Link" />
+                <body name="3_Link" pos="0.21 0 0.032" quat="-2.59734e-06 -0.707105 0.707108 2.59735e-06">
+                    <inertial pos="4.11106e-05 -0.0421847 0.0339847" quat="0.650616 0.759352 -0.00722631 0.0055877" mass="0.811074" diaginertia="0.00221345 0.00215217 0.000667679" />
+                    <joint name="3_joint" pos="0 0 0" axis="0 0 -1" limited="true" range="-2.1816 2.1816" />
+                    <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" mesh="3_Link" />
+                    <geom type="mesh" rgba="1 1 1 1" mesh="3_Link" />
+                    <body name="4_Link" pos="0 -0.1303 0.0215" quat="0.00589426 0.00589944 -0.707083 0.707081">
+                        <inertial pos="-0.00043559 0.025939 0.045272" quat="0.688595 -0.135285 0.133027 0.699885" mass="0.30891" diaginertia="0.00051076 0.000485816 0.000190424" />
+                        <joint name="4_joint" pos="0 0 0" axis="0 0 -1" limited="true" range="-6.2832 6.2832" />
+                        <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" mesh="4_Link" />
+                        <geom type="mesh" rgba="1 1 1 1" mesh="4_Link" />
+                        <body name="5_Link" pos="-0.00035108 0.021047 0.0802" quat="0.00590166 -0.00590169 0.707083 -0.707081">
+                            <inertial pos="1.114e-06 -0.044544 0.031299" quat="0.652502 0.757787 0.000457072 -0.000313223" mass="0.69161" diaginertia="0.0016775 0.00163272 0.000511603" />
+                            <joint name="5_joint" pos="0 0 0" axis="0 0 -1" limited="true" range="-2.0944 2.0944" />
+                            <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" mesh="5_Link" />
+                            <geom type="mesh" rgba="1 1 1 1" mesh="5_Link" />
+                            <body name="6_Link" pos="0 -0.1513 0.02105" quat="0.00589426 0.00589944 -0.707083 0.707081">
+                                <inertial pos="-2.1542e-05 3.5464e-05 -0.012293" quat="0.613235 0.349669 -0.615288 0.350847" mass="0.14776" diaginertia="0.00010394 6.81527e-05 6.64019e-05" />
+                                <joint name="6_joint" pos="0 0 0" axis="0 0 -1" limited="true" range="-6.2832 6.2832" />
+                                <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" mesh="6_Link" />
+                                <geom type="mesh" rgba="1 1 1 1" mesh="6_Link" />
+                            </body>
+                        </body>
+                    </body>
+                </body>
+            </body>
+        </body>
+    </worldbody>
+</mujoco>

@@ -1,0 +1,403 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com)
+     Commit Version: 1.5.1-0-g916b5db  Build Version: 1.5.7152.31018
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="Mini2">
+
+   <mujoco>
+       <compiler
+       meshdir="../meshes/"
+       balanceinertia="true"
+       discardvisual="false" />
+  </mujoco>
+
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="0.00018021 -7.7645E-06 0.013095"
+        rpy="0 0 0" />
+      <mass
+        value="0.28093" />
+      <inertia
+        ixx="0.00024785"
+        ixy="-1.6069E-09"
+        ixz="5.2021E-07"
+        iyy="0.0002461"
+        iyz="-2.3227E-08"
+        izz="0.00045567" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Mini2/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Mini2/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="1_Link">
+    <inertial>
+      <origin
+        xyz="0.00022098 -0.013411 0.097344"
+        rpy="0 0 0" />
+      <mass
+        value="1.3529" />
+      <inertia
+        ixx="0.0055002"
+        ixy="1.5803E-06"
+        ixz="-1.182E-05"
+        iyy="0.0054322"
+        iyz="0.00069151"
+        izz="0.0016731" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Mini2/meshes/1_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Mini2/meshes/1_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="1_joint"
+    type="revolute">
+    <origin
+      xyz="0 0 0.0278"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="1_Link" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-6.2832"
+      upper="6.2832"
+      effort="10"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="2_Link">
+    <inertial>
+      <origin
+        xyz="0.0905583169157203 -2.55226272042105E-05 0.00606678590030608"
+        rpy="0 0 0" />
+      <mass
+        value="1.13763168278175" />
+      <inertia
+        ixx="0.00215015112517415"
+        ixy="-2.036750088694E-06"
+        ixz="-0.00254396818621707"
+        iyy="0.00820269535958294"
+        iyz="-9.88247617910637E-07"
+        izz="0.00725417648761589" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Mini2/meshes/2_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Mini2/meshes/2_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="2_joint"
+    type="revolute">
+    <origin
+      xyz="-0.00027519 0.016498 0.159"
+      rpy="1.5541 -1.5708 0" />
+    <parent
+      link="1_Link" />
+    <child
+      link="2_Link" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-2.0944"
+      upper="2.0944"
+      effort="10"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="3_Link">
+    <inertial>
+      <origin
+        xyz="4.11106365322683E-05 -0.0421847129588264 0.0339847052350974"
+        rpy="0 0 0" />
+      <mass
+        value="0.811073594835725" />
+      <inertia
+        ixx="0.0022134286768224"
+        ixy="-1.57218738662767E-06"
+        ixz="8.87307794874241E-07"
+        iyy="0.000702584119444711"
+        iyz="-0.000224935963904111"
+        izz="0.00211728816376388" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Mini2/meshes/3_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Mini2/meshes/3_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="3_joint"
+    type="revolute">
+    <origin
+      xyz="0.21 0 0.032"
+      rpy="-3.1416 0 -1.5708" />
+    <parent
+      link="2_Link" />
+    <child
+      link="3_Link" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-2.1816"
+      upper="2.1816"
+      effort="10"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="4_Link">
+    <inertial>
+      <origin
+        xyz="-0.00043559 0.025939 0.045272"
+        rpy="0 0 0" />
+      <mass
+        value="0.30891" />
+      <inertia
+        ixx="0.00048581"
+        ixy="3.2945E-07"
+        ixz="1.8297E-06"
+        iyy="0.0004663"
+        iyz="-0.00011074"
+        izz="0.00023489" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Mini2/meshes/4_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Mini2/meshes/4_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="4_joint"
+    type="revolute">
+    <origin
+      xyz="0 -0.1303 0.0215"
+      rpy="-1.5708 -0.016679 3.1416" />
+    <parent
+      link="3_Link" />
+    <child
+      link="4_Link" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-6.2832"
+      upper="6.2832"
+      effort="10"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="5_Link">
+    <inertial>
+      <origin
+        xyz="1.114E-06 -0.044544 0.031299"
+        rpy="0 0 0" />
+      <mass
+        value="0.69161" />
+      <inertia
+        ixx="0.0016775"
+        ixy="1.4772E-07"
+        ixz="-2.7701E-08"
+        iyy="0.00053632"
+        iyz="-0.00016462"
+        izz="0.001608" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Mini2/meshes/5_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Mini2/meshes/5_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="5_joint"
+    type="revolute">
+    <origin
+      xyz="-0.00035108 0.021047 0.0802"
+      rpy="-1.5708 0 -3.1249" />
+    <parent
+      link="4_Link" />
+    <child
+      link="5_Link" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-2.0944"
+      upper="2.0944"
+      effort="10"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="6_Link">
+    <inertial>
+      <origin
+        xyz="-2.1542E-05 3.5464E-05 -0.012293"
+        rpy="0 0 0" />
+      <mass
+        value="0.14776" />
+      <inertia
+        ixx="6.7699E-05"
+        ixy="-7.6732E-07"
+        ixz="-1.213E-07"
+        iyy="6.6856E-05"
+        iyz="-2.2354E-09"
+        izz="0.00010394" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Mini2/meshes/6_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Mini2/meshes/6_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="6_joint"
+    type="revolute">
+    <origin
+      xyz="0 -0.1513 0.02105"
+      rpy="-1.5708 -0.016679 3.1416" />
+    <parent
+      link="5_Link" />
+    <child
+      link="6_Link" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-6.2832"
+      upper="6.2832"
+      effort="10"
+      velocity="3.1416" />
+  </joint>
+</robot>

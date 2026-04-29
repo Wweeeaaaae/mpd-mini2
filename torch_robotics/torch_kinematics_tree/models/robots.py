@@ -130,6 +130,59 @@ class DifferentiableUR10(DifferentiableTree):
         super().__init__(self.model_path, self.name, link_list=link_list, device=device)
 
 
+def modidy_mini2_urdf_collision_model(robot_file):
+    collision_spheres = 'mini2/mini2_sphere_config.yaml'
+    coll_yml = (get_configs_path() / collision_spheres).as_posix()
+    with open(coll_yml) as file:
+        coll_params = yaml.load(file, Loader=yaml.FullLoader)
+
+    robot_urdf = URDF.from_xml_file(robot_file)
+
+    link_collision_names = []
+    link_collision_margins = []
+    for link_name, spheres_l in coll_params.items():
+        for i, sphere in enumerate(spheres_l):
+            joint = Joint(
+                name=f'joint_{link_name}_sphere_{i}',
+                parent=link_name,
+                child=f'{link_name}_{i}',
+                joint_type='fixed',
+                origin=Pose(xyz=to_numpy(sphere[:3]))
+            )
+            robot_urdf.add_joint(joint)
+
+            link_collision = f'{link_name}_{i}'
+            link = Link(
+                name=link_collision,
+                origin=Pose(xyz=[0., 0., 0.], rpy=[0., 0., 0.])
+            )
+            robot_urdf.add_link(link)
+
+            link_collision_names.append(link_collision)
+            link_collision_margins.append(sphere[-1])
+
+    robot_file = Path(str(robot_file).replace('.urdf', '_collision_model.urdf'))
+    xmlstr = minidom.parseString(ET.tostring(robot_urdf.to_xml())).toprettyxml(indent="   ")
+    with open(str(robot_file), "w") as f:
+        f.write(xmlstr)
+
+    return robot_file, link_collision_names, link_collision_margins
+
+
+class DifferentiableMini2(DifferentiableTree):
+    def __init__(self, link_list: Optional[str] = None, device='cpu', use_collision_spheres=False):
+        robot_file = get_robot_path() / 'Mini2' / 'urdf' / 'Mini2.urdf'
+
+        if use_collision_spheres:
+            robot_file, link_collision_names, link_collision_margins = modidy_mini2_urdf_collision_model(robot_file)
+            self.link_collision_names = link_collision_names
+            self.link_collision_margins = link_collision_margins
+
+        self.model_path = robot_file.as_posix()
+        self.name = "differentiable_mini2"
+        super().__init__(self.model_path, self.name, link_list=link_list, device=device)
+
+
 class DifferentiableHabitatStretch(DifferentiableTree):
     def __init__(self, link_list: Optional[str] = None, device='cpu'):
         robot_path = get_robot_path()
