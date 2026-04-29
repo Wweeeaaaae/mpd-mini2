@@ -1,6 +1,7 @@
 import os
 import time
 from math import ceil
+from pathlib import Path
 
 import cv2
 import imageio
@@ -19,9 +20,11 @@ from deps.isaacgym.python.isaacgym.torch_utils import to_torch
 from torch_robotics.environments import EnvTableShelf
 from torch_robotics.environments.env_spheres_3d import EnvSpheres3D
 from torch_robotics.environments.primitives import MultiSphereField, MultiBoxField
+from torch_robotics.robots.robot_mini2 import RobotMini2
 from torch_robotics.robots.robot_panda import RobotPanda
 from torch_robotics.tasks.tasks import PlanningTask
 from torch_robotics.torch_kinematics_tree.models.robots import modidy_franka_panda_urdf_grasped_object
+from torch_robotics.torch_kinematics_tree.utils.files import get_robot_path
 from torch_robotics.torch_planning_objectives.fields.distance_fields import interpolate_points_v1
 from torch_robotics.torch_utils.seed import fix_random_seed
 from torch_robotics.torch_utils.torch_utils import get_torch_device, to_numpy
@@ -77,6 +80,19 @@ def create_assets_from_primitive_shapes(sim, gym, obj_list):
                 raise NotImplementedError
 
     return object_assets_l, object_poses_l
+
+
+def modify_mini2_urdf_for_isaac(robot_file):
+    robot_file = Path(robot_file)
+    robot_file_isaac = robot_file.with_name(f'{robot_file.stem}_isaac{robot_file.suffix}')
+
+    src = robot_file.read_text(encoding='utf-8')
+    src_isaac = src.replace('package://Mini2/meshes/', '../meshes/')
+
+    if not robot_file_isaac.exists() or robot_file_isaac.read_text(encoding='utf-8') != src_isaac:
+        robot_file_isaac.write_text(src_isaac, encoding='utf-8')
+
+    return robot_file_isaac
 
 
 def make_gif_from_array(filename, array, fps=10):
@@ -173,11 +189,14 @@ class ViewerRecorder:
             gif_path = gif_path + '.gif'
             video.write_gif(gif_path, fps=video.fps)
 
-class PandaMotionPlanningIsaacGymEnv:
+class MotionPlanningIsaacGymEnv:
 
     def __init__(self, env, robot, task,
                  asset_root="/home/carvalho/Projects/MotionPlanningDiffusion/mpd/deps/isaacgym/assets",
-                 franka_asset_file="urdf/franka_description/robots/franka_panda.urdf",
+                 robot_asset_file="urdf/franka_description/robots/franka_panda.urdf",
+                 end_effector_link_name='panda_hand',
+                 arm_dof_count=None,
+                 flip_visual_attachments=True,
                  controller_type='position',
                  num_envs=8,
                  all_robots_in_one_env=False,
@@ -188,6 +207,7 @@ class PandaMotionPlanningIsaacGymEnv:
                  show_collision_spheres=False,  # very slow implementation. use only one robots
                  collor_robots_in_collision=False,
                  show_contact_forces=False,
+                 debug_contact_summary=False,
                  dt=1./25.,  # dt of motion planning
                  lower_level_controller_frequency=1000,
                  **kwargs,
@@ -196,6 +216,8 @@ class PandaMotionPlanningIsaacGymEnv:
         self.robot = robot
         self.task = task
         self.controller_type = controller_type
+        self.end_effector_link_name = end_effector_link_name
+        self.arm_dof_count = robot.q_dim if arm_dof_count is None else arm_dof_count
         self.num_envs = num_envs + 1 if show_goal_configuration else num_envs
 
         self.all_robots_in_one_env = all_robots_in_one_env
@@ -204,15 +226,22 @@ class PandaMotionPlanningIsaacGymEnv:
         self.collor_robots_in_collision = collor_robots_in_collision
         self.show_collision_spheres = show_collision_spheres
         self.show_contact_forces = show_contact_forces
+        self.debug_contact_summary = debug_contact_summary
+        self.reported_contact_envs = set()
 
         # Modify the urdf to append the link of the grasped object
         if self.robot.grasped_object is not None:
-            franka_asset_file_abs_path = os.path.join(asset_root, franka_asset_file)
-            franka_asset_file_abs_path_new = modidy_franka_panda_urdf_grasped_object(
-                franka_asset_file_abs_path,
+            if not isinstance(self.robot, RobotPanda):
+                raise NotImplementedError('Isaac Gym grasped-object rendering is only implemented for RobotPanda.')
+            robot_asset_file_abs_path = os.path.join(asset_root, robot_asset_file)
+            robot_asset_file_abs_path_new = modidy_franka_panda_urdf_grasped_object(
+                robot_asset_file_abs_path,
                 self.robot.grasped_object
             )
-            franka_asset_file = os.path.join(os.path.split(franka_asset_file)[0], os.path.split(franka_asset_file_abs_path_new)[-1])
+            robot_asset_file = os.path.join(
+                os.path.split(robot_asset_file)[0],
+                os.path.split(robot_asset_file_abs_path_new)[-1]
+            )
 
         ###############################################################################################################
         # ISAAC
@@ -273,10 +302,8 @@ class PandaMotionPlanningIsaacGymEnv:
         asset_options.armature = 0.01
         asset_options.fix_base_link = True
         asset_options.disable_gravity = True
-        asset_options.flip_visual_attachments = True
-        franka_asset = self.gym.load_asset(self.sim, asset_root, franka_asset_file, asset_options)
-
-        self.franka_hand = 'panda_hand'
+        asset_options.flip_visual_attachments = flip_visual_attachments
+        franka_asset = self.gym.load_asset(self.sim, asset_root, robot_asset_file, asset_options)
 
         # configure franka dofs
         franka_dof_props = self.gym.get_asset_dof_properties(franka_asset)
@@ -287,30 +314,37 @@ class PandaMotionPlanningIsaacGymEnv:
 
         # use position or velocity drive for all joint dofs
         if self.controller_type == 'position':
-            franka_dof_props["driveMode"][:7].fill(gymapi.DOF_MODE_POS)
-            franka_dof_props["stiffness"][:7].fill(400.0)
+            franka_dof_props["driveMode"][:self.arm_dof_count].fill(gymapi.DOF_MODE_POS)
+            franka_dof_props["stiffness"][:self.arm_dof_count].fill(400.0)
             # franka_dof_props["damping"][:7].fill(40.0)
             # franka_dof_props["stiffness"][:7] = np.array([400.0, 300.0, 300.0, 200.0, 150.0, 100.0, 50.0])
-            franka_dof_props["damping"][:7] = 2. * np.sqrt(franka_dof_props["stiffness"][:7])
+            franka_dof_props["damping"][:self.arm_dof_count] = 2. * np.sqrt(
+                franka_dof_props["stiffness"][:self.arm_dof_count]
+            )
         elif self.controller_type == 'velocity':
-            franka_dof_props["driveMode"][:7].fill(gymapi.DOF_MODE_VEL)
-            franka_dof_props["stiffness"][:7].fill(0.0)
-            franka_dof_props["damping"][:7].fill(600.0)
+            franka_dof_props["driveMode"][:self.arm_dof_count].fill(gymapi.DOF_MODE_VEL)
+            franka_dof_props["stiffness"][:self.arm_dof_count].fill(0.0)
+            franka_dof_props["damping"][:self.arm_dof_count].fill(600.0)
         else:
             raise NotImplementedError
 
         # use position control for grippers
-        franka_dof_props["driveMode"][7:].fill(gymapi.DOF_MODE_POS)
-        franka_dof_props["stiffness"][7:].fill(800.0)
-        franka_dof_props["damping"][7:].fill(40.0)
+        franka_dof_props["driveMode"][self.arm_dof_count:].fill(gymapi.DOF_MODE_POS)
+        franka_dof_props["stiffness"][self.arm_dof_count:].fill(800.0)
+        franka_dof_props["damping"][self.arm_dof_count:].fill(40.0)
 
         # default dof states and position targets
         self.franka_num_dofs = self.gym.get_asset_dof_count(franka_asset)
+        self.gripper_dof_count = self.franka_num_dofs - self.arm_dof_count
+        if self.gripper_dof_count < 0:
+            raise ValueError(
+                f'arm_dof_count={self.arm_dof_count} exceeds asset dof count={self.franka_num_dofs}'
+            )
         self.default_dof_pos = np.zeros(self.franka_num_dofs, dtype=np.float32)
         # default_dof_pos[:7] = franka_mids[:7]
 
         # grippers open
-        self.default_dof_pos[7:] = self.franka_upper_limits[7:]
+        self.default_dof_pos[self.arm_dof_count:] = self.franka_upper_limits[self.arm_dof_count:]
 
         self.default_dof_state = np.zeros(self.franka_num_dofs, gymapi.DofState.dtype)
         self.default_dof_state["pos"] = self.default_dof_pos
@@ -352,6 +386,7 @@ class PandaMotionPlanningIsaacGymEnv:
         # maps the global rigid body index to the environments index
         # useful to know which trajectories are in collision
         self.map_rigid_body_idxs_to_env_idx = {}
+        self.map_rigid_body_idxs_to_metadata = {}
 
         for i in range(self.num_envs):
             # create env
@@ -367,6 +402,12 @@ class PandaMotionPlanningIsaacGymEnv:
                 obj_idx = self.gym.get_actor_rigid_body_index(env, object_handle, 0, gymapi.DOMAIN_SIM)
                 self.obj_idxs.append(obj_idx)
                 self.map_rigid_body_idxs_to_env_idx[obj_idx] = i
+                self.map_rigid_body_idxs_to_metadata[obj_idx] = {
+                    'env_idx': i,
+                    'actor_type': 'obj_fixed',
+                    'body_name': f'obj_fixed_{len(self.obj_idxs) - 1}',
+                    'is_goal_actor': False,
+                }
 
             # add objects extra
             for obj_asset, obj_pose in zip(object_extra_assets_l, object_extra_poses_l):
@@ -376,6 +417,12 @@ class PandaMotionPlanningIsaacGymEnv:
                 obj_idx = self.gym.get_actor_rigid_body_index(env, object_handle, 0, gymapi.DOMAIN_SIM)
                 self.obj_idxs.append(obj_idx)
                 self.map_rigid_body_idxs_to_env_idx[obj_idx] = i
+                self.map_rigid_body_idxs_to_metadata[obj_idx] = {
+                    'env_idx': i,
+                    'actor_type': 'obj_extra',
+                    'body_name': f'obj_extra_{len(self.obj_idxs) - 1}',
+                    'is_goal_actor': False,
+                }
 
             # add franka
             # Set to 0 to enable self-collision. By default we do not consider self-collision because the collision
@@ -383,9 +430,16 @@ class PandaMotionPlanningIsaacGymEnv:
             franka_handle = self.gym.create_actor(env, franka_asset, franka_pose, "franka", i, 0)
             self.franka_handles.append(franka_handle)
             rb_names = self.gym.get_actor_rigid_body_names(env, franka_handle)
+            is_goal_actor = self.show_goal_configuration and i == self.num_envs - 1
             for j in range(len(rb_names)):
                 rb_idx = self.gym.get_actor_rigid_body_index(env, franka_handle, j, gymapi.DOMAIN_SIM)
                 self.map_rigid_body_idxs_to_env_idx[rb_idx] = i
+                self.map_rigid_body_idxs_to_metadata[rb_idx] = {
+                    'env_idx': i,
+                    'actor_type': 'robot',
+                    'body_name': rb_names[j],
+                    'is_goal_actor': is_goal_actor,
+                }
 
             # color franka
             n_rigid_bodies = self.gym.get_actor_rigid_body_count(env, franka_handle)
@@ -444,23 +498,86 @@ class PandaMotionPlanningIsaacGymEnv:
         # get dof state tensor
         _dof_states = self.gym.acquire_dof_state_tensor(self.sim)
         self.dof_states = gymtorch.wrap_tensor(_dof_states)
-        self.dof_pos = self.dof_states[:, 0].view(self.num_envs, 9, 1)
-        self.dof_vel = self.dof_states[:, 1].view(self.num_envs, 9, 1)
+        self.dof_pos = self.dof_states[:, 0].view(self.num_envs, self.franka_num_dofs, 1)
+        self.dof_vel = self.dof_states[:, 1].view(self.num_envs, self.franka_num_dofs, 1)
 
         ###############################################################################################################
         self.step_idx = 0
 
+    @staticmethod
+    def _get_contact_body_indices(contact):
+        body0_idx = getattr(contact, 'body0', contact[2])
+        body1_idx = getattr(contact, 'body1', contact[3])
+        return int(body0_idx), int(body1_idx)
+
+    def _get_rigid_body_metadata(self, rigid_body_idx):
+        rigid_body_idx = int(rigid_body_idx)
+        return self.map_rigid_body_idxs_to_metadata.get(
+            rigid_body_idx,
+            {
+                'env_idx': None,
+                'actor_type': 'unknown',
+                'body_name': f'body_{rigid_body_idx}',
+                'is_goal_actor': False,
+            },
+        )
+
+    def _summarize_contact(self, contact):
+        body0_idx, body1_idx = self._get_contact_body_indices(contact)
+        meta0 = self._get_rigid_body_metadata(body0_idx)
+        meta1 = self._get_rigid_body_metadata(body1_idx)
+
+        env_idx = None
+        for meta in (meta0, meta1):
+            if meta['actor_type'] == 'robot' and not meta['is_goal_actor']:
+                env_idx = meta['env_idx']
+                break
+        if env_idx is None:
+            for meta in (meta0, meta1):
+                if meta['env_idx'] is not None:
+                    env_idx = meta['env_idx']
+                    break
+
+        if meta0['actor_type'] == 'robot' and meta1['actor_type'] == 'robot':
+            contact_type = 'robot-self'
+            if meta0['is_goal_actor'] or meta1['is_goal_actor']:
+                contact_type = 'robot-goal-robot'
+        elif meta0['actor_type'] == 'robot' or meta1['actor_type'] == 'robot':
+            other_meta = meta1 if meta0['actor_type'] == 'robot' else meta0
+            if other_meta['actor_type'] == 'obj_fixed':
+                contact_type = 'robot-fixed-object'
+            elif other_meta['actor_type'] == 'obj_extra':
+                contact_type = 'robot-extra-object'
+            else:
+                contact_type = 'robot-other'
+        else:
+            contact_type = 'non-robot-or-unknown'
+
+        return {
+            'env_idx': env_idx,
+            'contact_type': contact_type,
+            'body0_idx': body0_idx,
+            'body1_idx': body1_idx,
+            'meta0': meta0,
+            'meta1': meta1,
+        }
+
     def reset(self, start_joint_positions=None, goal_joint_position=None):
         self.step_idx = 0
+        self.reported_contact_envs = set()
 
         if start_joint_positions is None:
-            start_joint_positions = torch.zeros((self.num_envs, self.franka_num_dofs - 2), **self.tensor_args)  # w/o gripper
-            start_joint_positions[..., :7] = to_torch(self.default_dof_pos[:7], **self.tensor_args)
+            start_joint_positions = torch.zeros((self.num_envs, self.arm_dof_count), **self.tensor_args)
+            start_joint_positions[..., :self.arm_dof_count] = to_torch(
+                self.default_dof_pos[:self.arm_dof_count], **self.tensor_args
+            )
 
         assert start_joint_positions.ndim == 2
 
         # make sure joint positions are in the same device as the pipeline
         start_joint_positions = start_joint_positions.to(**self.tensor_args)
+        if goal_joint_position is not None:
+            goal_joint_position = goal_joint_position.to(**self.tensor_args)
 
         # Set dof states
         # reset to zero velocity
@@ -468,15 +585,18 @@ class PandaMotionPlanningIsaacGymEnv:
 
         dof_pos_tensor = torch.zeros((self.num_envs, self.franka_num_dofs), **self.tensor_args)
         if self.show_goal_configuration:
-            dof_pos_tensor[:-1, :7] = start_joint_positions
+            dof_pos_tensor[:-1, :self.arm_dof_count] = start_joint_positions
             assert goal_joint_position is not None
             self.goal_joint_position = goal_joint_position
-            dof_pos_tensor[-1, :7] = goal_joint_position
+            dof_pos_tensor[-1, :self.arm_dof_count] = goal_joint_position
         else:
-            dof_pos_tensor[..., :7] = start_joint_positions
+            dof_pos_tensor[..., :self.arm_dof_count] = start_joint_positions
 
         # grippers open
-        dof_pos_tensor[..., 7:] = to_torch(self.franka_upper_limits, **self.tensor_args)[None, 7:]
+        if self.gripper_dof_count > 0:
+            dof_pos_tensor[..., self.arm_dof_count:] = to_torch(
+                self.franka_upper_limits[self.arm_dof_count:], **self.tensor_args
+            )[None, :]
 
         # dof_state_tensor[..., :self.franka_num_dofs] = dof_pos_tensor
 
@@ -489,9 +609,7 @@ class PandaMotionPlanningIsaacGymEnv:
             joint_state_des = self.gym.get_actor_dof_states(env, handle, gymapi.STATE_ALL)
             joint_state_des['pos'] = np.zeros_like(joint_state_des['pos'])
             joint_state_des['vel'] = np.zeros_like(joint_state_des['vel'])
-            joint_state_des['pos'][:7] = to_numpy(joints_pos[:7])
-            joint_state_des['pos'][-1] = joints_pos[-1]
-            joint_state_des['pos'][-2] = joints_pos[-2]
+            joint_state_des['pos'][:] = to_numpy(joints_pos)
             self.gym.set_actor_dof_states(env, handle, joint_state_des, gymapi.STATE_ALL)
             self.gym.set_actor_dof_position_targets(env, handle, joint_state_des['pos'])
 
@@ -504,7 +622,9 @@ class PandaMotionPlanningIsaacGymEnv:
         # refresh tensors
         self.gym.refresh_dof_state_tensor(self.sim)
         # Get current joint states
-        joint_states_curr = gymtorch.wrap_tensor(self.gym.acquire_dof_state_tensor(self.sim)).view(self.num_envs, 9, 2)
+        joint_states_curr = gymtorch.wrap_tensor(self.gym.acquire_dof_state_tensor(self.sim)).view(
+            self.num_envs, self.franka_num_dofs, 2
+        )
         if self.show_goal_configuration:
             joint_states_curr = joint_states_curr[:-1, ...]
         return joint_states_curr
@@ -522,18 +642,21 @@ class PandaMotionPlanningIsaacGymEnv:
         # Deploy control based on type
         action_dof = torch.zeros_like(self.dof_pos).squeeze(-1)
         if self.show_goal_configuration:
-            action_dof[:-1, :7] = actions[..., :7]
+            action_dof[:-1, :self.arm_dof_count] = actions[..., :self.arm_dof_count]
             if self.controller_type == 'position':
-                action_dof[-1, :7] = self.goal_joint_position
+                action_dof[-1, :self.arm_dof_count] = self.goal_joint_position
             elif self.controller_type == 'velocity':
-                action_dof[-1, :7] = torch.zeros_like(self.goal_joint_position)
+                action_dof[-1, :self.arm_dof_count] = torch.zeros_like(self.goal_joint_position)
             else:
                 raise NotImplementedError
         else:
-            action_dof[..., :7] = actions[..., :7]
+            action_dof[..., :self.arm_dof_count] = actions[..., :self.arm_dof_count]
 
         # gripper is open
-        action_dof[..., 7:9] = torch.Tensor([[0.04, 0.04]] * self.num_envs)
+        if self.gripper_dof_count > 0:
+            action_dof[..., self.arm_dof_count:] = to_torch(
+                self.default_dof_pos[self.arm_dof_count:], **self.tensor_args
+            )[None, :]
 
         ###############################################################################################################
         # Deploy actions
@@ -557,17 +680,28 @@ class PandaMotionPlanningIsaacGymEnv:
             franka_handles = franka_handles[:-1]
 
         envs_with_robot_in_contact = []
-        for env, franka_handle in zip(envs, franka_handles):
-            rigid_contacts = self.gym.get_env_rigid_contacts(env)
-            if self.all_robots_in_one_env:
+        if self.all_robots_in_one_env:
+            if len(envs) > 0:
+                rigid_contacts = self.gym.get_env_rigid_contacts(envs[0])
                 for contact in rigid_contacts:
-                    body1_idx = contact[2]
-                    env_idx = self.map_rigid_body_idxs_to_env_idx[body1_idx]
-                    if env_idx in envs_with_robot_in_contact:
-                        pass
-                    else:
+                    contact_info = self._summarize_contact(contact)
+                    env_idx = contact_info['env_idx']
+                    if env_idx is None:
+                        continue
+                    if env_idx not in envs_with_robot_in_contact:
                         envs_with_robot_in_contact.append(env_idx)
-            else:
+                    if self.debug_contact_summary and env_idx not in self.reported_contact_envs:
+                        meta0 = contact_info['meta0']
+                        meta1 = contact_info['meta1']
+                        print(
+                            f"Isaac contact step={self.step_idx} env={env_idx} type={contact_info['contact_type']} "
+                            f"body0={meta0['actor_type']}:{meta0['body_name']} "
+                            f"body1={meta1['actor_type']}:{meta1['body_name']}"
+                        )
+                        self.reported_contact_envs.add(env_idx)
+        else:
+            for env, franka_handle in zip(envs, franka_handles):
+                rigid_contacts = self.gym.get_env_rigid_contacts(env)
                 if len(rigid_contacts) > 0:
                     env_idx = rigid_contacts[0][0]
                     if env_idx in envs_with_robot_in_contact:
@@ -591,7 +725,7 @@ class PandaMotionPlanningIsaacGymEnv:
                 # End-effector frame
                 body_dict = self.gym.get_actor_rigid_body_dict(env, franka_handle)
                 props = self.gym.get_actor_rigid_body_states(env, franka_handle, gymapi.STATE_POS)
-                ee_pose = props['pose'][:][body_dict[self.franka_hand]]
+                ee_pose = props['pose'][:][body_dict[self.end_effector_link_name]]
                 ee_transform = gymapi.Transform(p=gymapi.Vec3(*ee_pose[0]), r=gymapi.Quat(*ee_pose[1]))
                 # reference frame
                 gymutil.draw_lines(self.axes_geom, self.gym, self.viewer, env, ee_transform)
@@ -609,7 +743,7 @@ class PandaMotionPlanningIsaacGymEnv:
                 if self.show_collision_spheres:
                     # TODO - tensor version. It is currently very slow.
                     joint_state_curr = self.gym.get_actor_dof_states(env, franka_handle, gymapi.STATE_ALL)
-                    joint_pos_curr = to_torch(joint_state_curr['pos'][:7], **self.tensor_args)
+                    joint_pos_curr = to_torch(joint_state_curr['pos'][:self.arm_dof_count], **self.tensor_args)
                     fk_link_pos = self.robot.fk_map_collision(joint_pos_curr)
                     fk_link_pos = fk_link_pos[..., self.robot.link_idxs_for_object_collision_checking, :]
                     fk_link_pos = interpolate_points_v1(fk_link_pos, self.robot.num_interpolated_points_for_object_collision_checking).squeeze(0)
@@ -638,7 +772,9 @@ class PandaMotionPlanningIsaacGymEnv:
         self.step_idx += 1
 
         # Get current joint states
-        joint_states_curr = gymtorch.wrap_tensor(self.gym.acquire_dof_state_tensor(self.sim)).view(self.num_envs, 9, 2)
+        joint_states_curr = gymtorch.wrap_tensor(self.gym.acquire_dof_state_tensor(self.sim)).view(
+            self.num_envs, self.franka_num_dofs, 2
+        )
         if self.show_goal_configuration:
             joint_states_curr = joint_states_curr[:-1, ...]
         return joint_states_curr, envs_with_robot_in_contact
@@ -650,6 +786,55 @@ class PandaMotionPlanningIsaacGymEnv:
         # cleanup
         self.gym.destroy_viewer(self.viewer)
         self.gym.destroy_sim(self.sim)
+
+
+class PandaMotionPlanningIsaacGymEnv(MotionPlanningIsaacGymEnv):
+
+    def __init__(
+            self, env, robot, task,
+            asset_root="/home/carvalho/Projects/MotionPlanningDiffusion/mpd/deps/isaacgym/assets",
+            franka_asset_file="urdf/franka_description/robots/franka_panda.urdf",
+            **kwargs,
+    ):
+        super().__init__(
+            env,
+            robot,
+            task,
+            asset_root=asset_root,
+            robot_asset_file=franka_asset_file,
+            end_effector_link_name='panda_hand',
+            arm_dof_count=7,
+            flip_visual_attachments=True,
+            **kwargs,
+        )
+
+
+class Mini2MotionPlanningIsaacGymEnv(MotionPlanningIsaacGymEnv):
+
+    def __init__(
+            self, env, robot, task,
+            asset_root=None,
+            mini2_asset_file="Mini2/urdf/Mini2.urdf",
+            **kwargs,
+    ):
+        if not isinstance(robot, RobotMini2):
+            raise TypeError('Mini2MotionPlanningIsaacGymEnv requires robot to be an instance of RobotMini2.')
+        if asset_root is None:
+            asset_root = get_robot_path().as_posix()
+        asset_root_path = Path(asset_root)
+        mini2_asset_file_abs = asset_root_path / mini2_asset_file
+        mini2_asset_file_isaac_abs = modify_mini2_urdf_for_isaac(mini2_asset_file_abs)
+        super().__init__(
+            env,
+            robot,
+            task,
+            asset_root=asset_root,
+            robot_asset_file=mini2_asset_file_isaac_abs.relative_to(asset_root_path).as_posix(),
+            end_effector_link_name='6_Link',
+            arm_dof_count=6,
+            flip_visual_attachments=False,
+            **kwargs,
+        )
 
 
 class MotionPlanningController:
