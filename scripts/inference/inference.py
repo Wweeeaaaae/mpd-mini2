@@ -28,7 +28,10 @@ from torch_robotics.visualizers.planning_visualizer import PlanningVisualizer
 allow_ops_in_compiled_graph()
 #einops的操作被允许在编译图中执行
 
-TRAINED_MODELS_DIR = '../../data_trained_models/'
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent.parent
+TRAINED_MODELS_DIR = REPO_ROOT / 'data_trained_models'
+DEFAULT_RESULTS_DIR = SCRIPT_DIR / 'logs' / 'panda'
 #模型存储目录
 
 @single_experiment_yaml  #装饰器
@@ -39,6 +42,8 @@ def experiment(
     # model_id: str = 'EnvNarrowPassageDense2D-RobotPointMass',
     # model_id: str = 'EnvSimple2D-RobotPointMass',
     model_id: str = 'EnvSpheres3D-RobotPanda',
+    model_dir: str = '',
+    checkpoint_path: str = '',
 
     # planner_alg: str = 'diffusion_prior',
     # planner_alg: str = 'diffusion_prior_then_guide',
@@ -65,11 +70,13 @@ def experiment(
     debug: bool = True,
 
     render: bool = True,  #渲染结果
+    interpolate_for_isaac_replay: bool = False,
+    num_interpolation_for_isaac_replay: int = 2,
 
     ########################################################################
     # MANDATORY
     seed: int = 30,
-    results_dir: str = 'logs',  #结果目录scripts/inference/logs
+    results_dir: str = str(DEFAULT_RESULTS_DIR),  #结果目录scripts/inference/logs/panda/<seed>
 
     ########################################################################
     **kwargs
@@ -96,11 +103,11 @@ def experiment(
         raise NotImplementedError  #规划算法设置模式
 
     ########################################################################################################################
-    model_dir = os.path.join(TRAINED_MODELS_DIR, model_id)
-    results_dir = os.path.join(model_dir, 'results_inference', str(seed))
-    os.makedirs(results_dir, exist_ok=True)  #创造目录data_trained_models/EnvSpheres3D-RobotPanda/results_inference/30
+    model_dir_path = Path(model_dir).expanduser().resolve() if model_dir else (TRAINED_MODELS_DIR / model_id)
+    results_dir_path = Path(results_dir).expanduser().resolve()
+    results_dir_path.mkdir(parents=True, exist_ok=True)
 
-    args = load_params_from_yaml(os.path.join(model_dir, "args.yaml"))  #加载模型参数
+    args = load_params_from_yaml(str(model_dir_path / "args.yaml"))  #加载模型参数
 
     ########################################################################################################################
     #获取训练和验证数据集，从中提取出环境、机器人和任务等相关信息
@@ -147,9 +154,14 @@ def experiment(
         **unet_configs
     )
     #  加载预训练模型权重参数（普通模型权重，EMA平滑模型权重）
+    if checkpoint_path:
+        checkpoint_path_resolved = Path(checkpoint_path).expanduser().resolve()
+    else:
+        checkpoint_name = 'ema_model_current_state_dict.pth' if args['use_ema'] else 'model_current_state_dict.pth'
+        checkpoint_path_resolved = model_dir_path / 'checkpoints' / checkpoint_name
+
     diffusion_model.load_state_dict(
-        torch.load(os.path.join(model_dir, 'checkpoints', 'ema_model_current_state_dict.pth' if args['use_ema'] else 'model_current_state_dict.pth'),
-        map_location=tensor_args['device'])
+        torch.load(checkpoint_path_resolved, map_location=tensor_args['device'])
     )
     diffusion_model.eval()  #设定评估模式，给定相同输入，产生相同输出
     model = diffusion_model
@@ -237,7 +249,7 @@ def experiment(
             cost_composite,  #复合成本函数对象（碰撞成本，轨迹平滑成本）
             clip_grad=True,  #是否在优化过程中对梯度进行裁剪
             interpolate_trajectories_for_collision=True,  #计算碰撞成本时对轨迹进行插值
-            num_interpolated_points=ceil(n_support_points * factor_num_interpolated_points_for_collision),  #计算插值点的数量
+            num_interpolated_points_for_collision=ceil(n_support_points * factor_num_interpolated_points_for_collision),  #计算插值点的数量
             tensor_args=tensor_args,
     )
 
@@ -348,13 +360,13 @@ def experiment(
         'idx_best_traj': idx_best_traj,
         'traj_final_free_best': traj_final_free_best,
         'cost_best_free_traj': cost_best_free_traj,
-        'cost_path_length_trajs_final_free': cost_smoothness,
-        'cost_smoothness_trajs_final_free': cost_path_length,
+        'cost_path_length_trajs_final_free': cost_path_length,
+        'cost_smoothness_trajs_final_free': cost_smoothness,
         'cost_all_trajs_final_free': cost_all,
         'variance_waypoint_trajs_final_free': variance_waypoint_trajs_final_free,
         't_total': t_total
     }
-    with open(os.path.join(results_dir, 'results_data_dict.pickle'), 'wb') as handle:
+    with open(results_dir_path / 'results_data_dict.pickle', 'wb') as handle:
         pickle.dump(results_data_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     ########################################################################################################################
@@ -374,7 +386,7 @@ def experiment(
             pos_start_state=start_state_pos, pos_goal_state=goal_state_pos,
             vel_start_state=torch.zeros_like(start_state_pos), vel_goal_state=torch.zeros_like(goal_state_pos),
             traj_best=traj_final_free_best,
-            video_filepath=os.path.join(results_dir, f'{base_file_name}-joint-space-opt-iters.mp4'),
+            video_filepath=str(results_dir_path / f'{base_file_name}-joint-space-opt-iters.mp4'),
             n_frames=max((2, len(trajs_iters))),
             anim_time=5
         )
@@ -389,12 +401,19 @@ def experiment(
             trajs_pos = robot.get_position(trajs_final_free).movedim(1, 0)  #提取最后迭代位置信息，速度信息
             trajs_vel = robot.get_velocity(trajs_final_free).movedim(1, 0)
 
-            trajs_pos = interpolate_traj_via_points(trajs_pos.movedim(0, 1), 2).movedim(1, 0)  #轨迹插值
+            if interpolate_for_isaac_replay:
+                print(f'Isaac replay interpolation enabled: num_interpolation={num_interpolation_for_isaac_replay}')
+                trajs_pos = interpolate_traj_via_points(
+                    trajs_pos.movedim(0, 1),
+                    num_interpolation=num_interpolation_for_isaac_replay,
+                ).movedim(1, 0)  #轨迹插值
+            else:
+                print('Isaac replay interpolation disabled: using original support points directly')
 
             #  设置IsaacGym仿真环境
             motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
                 env, robot, task,
-                asset_root="../../deps/isaacgym/assets",  #指定 Isaac Gym 资产（如机器人模型）的根目录
+                asset_root=str(REPO_ROOT / "deps" / "isaacgym" / "assets"),  #指定 Isaac Gym 资产（如机器人模型）的根目录
                 controller_type='position',  #设置控制器的类型，这里使用位置控制器。
                 num_envs=trajs_pos.shape[1],  #设置仿真环境中的环境数量，由批次大小设计
                 all_robots_in_one_env=True,  #所有机器人是否在同一个环境中
@@ -417,7 +436,7 @@ def experiment(
                 visualize=True,
                 render_viewer_camera=True,
                 make_video=True,
-                video_path=os.path.join(results_dir, f'{base_file_name}-isaac-controller-position.mp4'),
+                video_path=str(results_dir_path / f'{base_file_name}-isaac-controller-position.mp4'),
                 make_gif=False
             )
         else:
@@ -426,7 +445,7 @@ def experiment(
             planner_visualizer.animate_opt_iters_robots(
                 trajs=pos_trajs_iters, start_state=start_state_pos, goal_state=goal_state_pos,
                 traj_best=traj_final_free_best,
-                video_filepath=os.path.join(results_dir, f'{base_file_name}-traj-opt-iters.mp4'),
+                video_filepath=str(results_dir_path / f'{base_file_name}-traj-opt-iters.mp4'),
                 n_frames=max((2, len(trajs_iters))),
                 anim_time=5
             )
@@ -435,7 +454,7 @@ def experiment(
             planner_visualizer.animate_robot_trajectories(
                 trajs=pos_trajs_iters[-1], start_state=start_state_pos, goal_state=goal_state_pos,
                 plot_trajs=True,
-                video_filepath=os.path.join(results_dir, f'{base_file_name}-robot-traj.mp4'),
+                video_filepath=str(results_dir_path / f'{base_file_name}-robot-traj.mp4'),
                 # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
                 n_frames=pos_trajs_iters[-1].shape[1],
                 anim_time=trajectory_duration

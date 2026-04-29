@@ -178,3 +178,6 @@ data_trajectories
 *.pickle
 
 *tar.gz
+
+.codex
+scripts/inference/pickle_to_txt/*.txt
