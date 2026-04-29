@@ -18,6 +18,7 @@ def experiment(
     #  数据集
     dataset_subdir: str = 'EnvSimple2D-RobotPointMass',
     # dataset_subdir: str = 'EnvSpheres3D-RobotPanda',
+    dataset_path: str = '',
     include_velocity: bool = True,
 
     ########################################################################
@@ -63,8 +64,10 @@ def experiment(
     ########################################################################
     #  WandB
     wandb_mode: str = 'disabled',  # "online", "offline" or "disabled"
-    wandb_entity: str = 'scoreplan',
+    wandb_entity: str = '',
     wandb_project: str = 'test_train',
+    wandb_group: str = '',
+    wandb_run_name: str = '',
     **kwargs
 ):
     fix_random_seed(seed)
@@ -77,6 +80,7 @@ def experiment(
         dataset_class='TrajectoryDataset',
         include_velocity=include_velocity,
         dataset_subdir=dataset_subdir,
+        dataset_path=dataset_path,
         batch_size=batch_size,
         results_dir=results_dir,
         save_indices=True,
@@ -123,7 +127,7 @@ def experiment(
         train_dataloader=train_dataloader,
         train_subset=train_subset,
         val_dataloader=val_dataloader,
-        val_subset=train_subset,
+        val_subset=val_subset,
         epochs=get_num_epochs(num_train_steps, batch_size, len(dataset)),
         model_dir=results_dir,
         summary_fn=summary_fn,

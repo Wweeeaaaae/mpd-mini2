@@ -329,7 +329,7 @@ class GaussianDiffusionModel(nn.Module, ABC):
         if return_chain:
             return trajs_chain_normalized
 
-        # eturn_chain 为 False，返回最后一个扩散步骤的样本。
+        # return_chain 为 False，返回最后一个扩散步骤的样本。
         return trajs_chain_normalized[-1]
 
     # ------------------------------------------ training ------------------------------------------#

@@ -48,12 +48,12 @@ launcher = Launcher(
 ########################################################################################################################
 #  实验参数设置
 
-dataset_subdir_l = [
-    'EnvSimple2D-RobotPointMass',
-    'EnvNarrowPassageDense2D-RobotPointMass',
-    'EnvDense2D-RobotPointMass',
-    'EnvSpheres3D-RobotPanda',
-
+dataset_configs_l = [
+     dict(dataset_subdir='EnvSpheres3DMini2-RobotMini2',
+          dataset_path='/home/yuancz/PycharmProjects/mpd-public/scripts/generate_data/logs/'
+                        'generate_trajectories_mini2_2026-04-23_16-55-24/'
+                        'env_id___EnvSpheres3DMini2/robot_id___RobotMini2'
+        ),
 ]
 
 include_velocity_l = [
@@ -89,21 +89,30 @@ lr = 3e-4  #学习率
 
 
 wandb_options = dict(
-    wandb_mode='disabled',  #wandb运行模式 "online"实验数据同步云端, "offline"保存在本地 or "disabled"不记录实验数据
-    wandb_entity='scoreplan',  #指定了Wandb账户或团队的名称
+    wandb_mode='online',  # wandb运行模式 "online"实验数据同步云端, "offline"保存在本地 or "disabled"不记录实验数据
+    wandb_entity='',  # 为空时默认使用当前 wandb login 对应的账号
     wandb_project=exp_name   #项目名称
 )
 
 ########################################################################################################################
 #  运行学习过程
 
-for dataset_subdir, include_velocity, use_ema, variance_schedule, n_diffusion_steps, predict_epsilon, unet_dim_mults_option in \
-        product(dataset_subdir_l, include_velocity_l, use_ema_l, variance_schedule_l, n_diffusion_steps_l, predict_epsilon_l, unet_dim_mults_option_l):
+for dataset_config, include_velocity, use_ema, variance_schedule, n_diffusion_steps, predict_epsilon, unet_dim_mults_option in \
+        product(dataset_configs_l, include_velocity_l, use_ema_l, variance_schedule_l, n_diffusion_steps_l, predict_epsilon_l, unet_dim_mults_option_l):
     #  遍历所有参数的组合
+    dataset_subdir = dataset_config['dataset_subdir']
+    dataset_path = dataset_config['dataset_path']
+    unet_variant_name = {
+        0: 'unet_3stage_32-64-128',
+        1: 'unet_4stage_32-64-128-256',
+    }.get(unet_dim_mults_option, f'unet_option_{unet_dim_mults_option}')
+    wandb_group = f'{dataset_subdir}-unet_depth_ablation'
+    wandb_run_name = f'{dataset_subdir}-{unet_variant_name}'
 
     #  添加每个实验的独立配置
     launcher.add_experiment(
         dataset_subdir__=dataset_subdir,  # 数据集子目录
+        dataset_path__=dataset_path,  # 数据集路径；为空时仍从 data_trajectories/<dataset_subdir> 读取
         include_velocity__=include_velocity,  # 是否包含速度信息
         use_ema__=use_ema,  # 是否使用EMA
         variance_schedule__=variance_schedule,  # 方差调度策略
@@ -119,13 +128,9 @@ for dataset_subdir, include_velocity, use_ema, variance_schedule, n_diffusion_st
         steps_til_summary=20000,  # 每隔20000步生成训练摘要
 
         **wandb_options,  # 传入Wandb的配置
-        wandb_group=f'{dataset_subdir}-{include_velocity}-{use_ema}-{variance_schedule}-{n_diffusion_steps}-{predict_epsilon}-{unet_dim_mults_option}',
-        # 设置实验组名称
+        wandb_group=wandb_group,
+        wandb_run_name=wandb_run_name,
         debug=False,  # 是否启用调试模式
     )
 
 launcher.run(LOCAL, TEST)
-
-
-
-

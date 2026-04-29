@@ -22,6 +22,7 @@ class TrajectoryDatasetBase(Dataset, abc.ABC):
 
     def __init__(self,
                  dataset_subdir=None,
+                 dataset_path='',
                  include_velocity=False,
                  normalizer='LimitsNormalizer',
                  use_extra_objects=False,
@@ -32,7 +33,8 @@ class TrajectoryDatasetBase(Dataset, abc.ABC):
         self.tensor_args = tensor_args
 
         self.dataset_subdir = dataset_subdir
-        self.base_dir = os.path.join(dataset_base_dir, self.dataset_subdir)
+        self.dataset_path = dataset_path
+        self.base_dir = self.dataset_path if self.dataset_path else os.path.join(dataset_base_dir, self.dataset_subdir)
 
         self.args = load_params_from_yaml(os.path.join(self.base_dir, '0', 'args.yaml'))
         self.metadata = load_params_from_yaml(os.path.join(self.base_dir, '0', 'metadata.yaml'))
