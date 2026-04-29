@@ -3,7 +3,6 @@ import numpy as np
 import torch
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
 
-from torch_robotics.environments.primitives import plot_sphere
 from torch_robotics.robots.robot_base import RobotBase
 from torch_robotics.torch_utils.torch_utils import to_numpy, to_torch
 
@@ -41,6 +40,8 @@ class RobotPointMass(RobotBase):
                     circle1 = plt.Circle(q, margin, color=color, zorder=10)
                     ax.add_patch(circle1)
                 elif self.q_dim == 3:
+                    from torch_robotics.environments.primitives import plot_sphere
+
                     plot_sphere(ax, q, np.zeros_like(q), margin, cmap)
                 else:
                     raise NotImplementedError
@@ -54,6 +55,8 @@ class RobotPointMass(RobotBase):
                         ax.add_collection(coll)
                 elif q.shape[-1] == 3:
                     # ax.scatter(q[:, 0], q[:, 1], q[:, 2], color=color, s=10 ** 2, zorder=10)
+                    from torch_robotics.environments.primitives import plot_sphere
+
                     for q_ in q:
                         plot_sphere(ax, q_, np.zeros_like(q_), margin, cmap)
                 else:

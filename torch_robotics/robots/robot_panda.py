@@ -8,7 +8,6 @@ import torch
 import yaml
 from torch import vmap
 
-from torch_robotics.environments.primitives import MultiSphereField
 from torch_robotics.robots.robot_base import RobotBase
 from torch_robotics.torch_kinematics_tree.geometrics.frame import Frame
 from torch_robotics.torch_kinematics_tree.geometrics.quaternion import q_convert_wxyz
@@ -290,6 +289,8 @@ class RobotPanda(RobotBase):
 
         # draw link collision points
         if draw_links_spheres:
+            from torch_robotics.environments.primitives import MultiSphereField
+
             link_tensor = convert_link_dict_to_tensor(fks_dict, self.link_names_for_object_collision_checking)
             link_pos = link_pos_from_link_tensor(link_tensor)
             link_pos = interpolate_points_v1(link_pos, self.num_interpolated_points_for_object_collision_checking).squeeze(0)
