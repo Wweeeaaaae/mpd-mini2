@@ -1,84 +1,225 @@
-import pickle
+import argparse
+from pathlib import Path
 
-import matplotlib.pyplot as plt
-
-import os.path
-
+import matplotlib
 import torch
 import yaml
 
 from mpd.utils.loading import load_params_from_yaml
 from torch_robotics import environments, robots
 from torch_robotics.tasks.tasks import PlanningTask
-from torch_robotics.torch_utils.torch_utils import DEFAULT_TENSOR_ARGS, to_torch
-from torch_robotics.visualizers.planning_visualizer import PlanningVisualizer
+from torch_robotics.torch_utils.torch_utils import get_torch_device
 
-DATA_DIR = '../../data_trajectories/EnvSpheres3D-RobotPanda-cluster/66'
 
-tensor_args = DEFAULT_TENSOR_ARGS
+SCRIPT_DIR = Path(__file__).resolve().parent
+DEFAULT_LOGS_DIR = SCRIPT_DIR / 'logs'
+DEFAULT_EXP_NAME = 'generate_trajectories'
 
-args = load_params_from_yaml(os.path.join(DATA_DIR, 'args.yaml'))
 
-metadata = load_params_from_yaml(os.path.join(DATA_DIR, 'metadata.yaml'))
-print(f"\n-------------- METADATA --------------")
-print(yaml.dump(metadata))
-print(f"\n--------------------------------------")
-print()
+def find_latest_result_dir(logs_dir, exp_name, env_id=None, robot_id=None):
+    """Find the newest result directory produced by launch_generate_trajectories.py."""
+    logs_dir = Path(logs_dir)
+    if not logs_dir.exists():
+        return None
 
-# -------------------------------- Load env, robot, task ---------------------------------
-# Environment
-env_class = getattr(environments, args['env_id'])
-env = env_class(tensor_args=tensor_args)
+    candidates = []
+    # launch_generate_trajectories.py uses exp_name='generate_trajectories' and use_timestamp=True,
+    # producing directories such as generate_trajectories_2026-04-23_16-26-40.
+    for args_path in logs_dir.glob(f'{exp_name}_[0-9]*/env_id___*/robot_id___*/*/args.yaml'):
+        result_dir = args_path.parent
+        if not (result_dir / 'metadata.yaml').exists():
+            continue
+        if not ((result_dir / 'trajs-free.pt').exists() or (result_dir / 'trajs-collision.pt').exists()):
+            continue
+        if env_id is not None and result_dir.parent.parent.name != f'env_id___{env_id}':
+            continue
+        if robot_id is not None and result_dir.parent.name != f'robot_id___{robot_id}':
+            continue
+        candidates.append(result_dir)
 
-# Robot
-robot_class = getattr(robots, args['robot_id'])
-robot = robot_class(
-    tensor_args=tensor_args
-)
+    if not candidates:
+        return None
 
-# Task
-task = PlanningTask(
-    env=env,
-    robot=robot,
-    obstacle_cutoff_margin=args['obstacle_cutoff_margin'],
-    tensor_args=tensor_args
-)
+    return max(candidates, key=lambda path: path.stat().st_mtime)
 
-# -------------------------------- Load trajectories -------------------------
-trajs_collision = torch.load(os.path.join(DATA_DIR, 'trajs-collision.pt')).to(**tensor_args)
-trajs_free = torch.load(os.path.join(DATA_DIR, 'trajs-free.pt')).to(**tensor_args)
 
-# trajs = torch.cat((trajs_collision, trajs_free))
-trajs = trajs_free
+def load_trajectories(data_dir, tensor_args, prefer):
+    trajs_free = torch.empty(0, **tensor_args)
+    trajs_collision = torch.empty(0, **tensor_args)
 
-# -------------------------------- Visualize ---------------------------------
-planner_visualizer = PlanningVisualizer(task=task)
+    free_path = data_dir / 'trajs-free.pt'
+    collision_path = data_dir / 'trajs-collision.pt'
+    if free_path.exists():
+        trajs_free = torch.load(free_path, map_location=tensor_args['device']).to(**tensor_args)
+    if collision_path.exists():
+        trajs_collision = torch.load(collision_path, map_location=tensor_args['device']).to(**tensor_args)
 
-pos_trajs = robot.get_position(trajs)
-start_state_pos = pos_trajs[0][0]
-goal_state_pos = pos_trajs[0][-1]
+    if prefer == 'free':
+        trajs = trajs_free if trajs_free.nelement() > 0 else trajs_collision
+    elif prefer == 'collision':
+        trajs = trajs_collision if trajs_collision.nelement() > 0 else trajs_free
+    elif prefer == 'all':
+        parts = [trajs for trajs in (trajs_free, trajs_collision) if trajs.nelement() > 0]
+        trajs = torch.cat(parts, dim=0) if parts else torch.empty(0, **tensor_args)
+    else:
+        raise ValueError(f'Unknown trajectory preference: {prefer}')
 
-planner_visualizer.plot_joint_space_state_trajectories(
-    trajs=trajs,
-    pos_start_state=start_state_pos, pos_goal_state=goal_state_pos,
-    vel_start_state=torch.zeros_like(start_state_pos), vel_goal_state=torch.zeros_like(goal_state_pos),
-)
+    if trajs.nelement() == 0:
+        raise RuntimeError(f'No trajectories found in {data_dir}')
 
-plt.show()
+    return trajs, trajs_free, trajs_collision
 
-planner_visualizer.render_robot_trajectories(
-    trajs=trajs, start_state=start_state_pos, goal_state=goal_state_pos,
-    render_planner=False,
-)
 
-plt.show()
+def save_or_show(fig, output_path=None, show=False):
+    if output_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(output_path, dpi=300)
+        print(f'Saved: {output_path}')
+    if show:
+        import matplotlib.pyplot as plt
 
-planner_visualizer.animate_robot_trajectories(
-    trajs=trajs, start_state=start_state_pos, goal_state=goal_state_pos,
-    plot_trajs=True,
-    video_filepath=os.path.join(DATA_DIR, 'robot-traj.mp4'),
-    # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
-    n_frames=trajs.shape[1],
-    anim_time=args['duration']
-)
+        plt.show()
+    import matplotlib.pyplot as plt
 
+    plt.close(fig)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Visualize trajectories generated by launch_generate_trajectories.py.'
+    )
+    parser.add_argument(
+        '--data-dir',
+        type=Path,
+        default=None,
+        help='Directory containing args.yaml, metadata.yaml, trajs-free.pt and trajs-collision.pt.',
+    )
+    parser.add_argument(
+        '--logs-dir',
+        type=Path,
+        default=DEFAULT_LOGS_DIR,
+        help='Logs directory used when --data-dir is omitted.',
+    )
+    parser.add_argument(
+        '--exp-name',
+        default=DEFAULT_EXP_NAME,
+        help='Launcher experiment name. The default matches launch_generate_trajectories.py.',
+    )
+    parser.add_argument('--env-id', default=None, help='Optional environment filter, for example EnvSpheres3D.')
+    parser.add_argument('--robot-id', default=None, help='Optional robot filter, for example RobotPanda.')
+    parser.add_argument('--device', default='cpu', choices=['cpu', 'cuda'], help='Torch device for visualization.')
+    parser.add_argument(
+        '--prefer',
+        default='free',
+        choices=['free', 'collision', 'all'],
+        help='Which saved trajectories to visualize.',
+    )
+    parser.add_argument('--max-trajs', type=int, default=5, help='Maximum number of trajectories to visualize.')
+    parser.add_argument('--show', action='store_true', help='Open matplotlib windows in addition to saving files.')
+    parser.add_argument('--no-video', action='store_true', help='Skip mp4 animation generation.')
+    parser.add_argument(
+        '--plot-full-trajs-in-video',
+        action='store_true',
+        help='Overlay full trajectories in every video frame. Disabled by default so motion is easier to see.',
+    )
+    parser.add_argument(
+        '--draw-collision-spheres',
+        action='store_true',
+        help='Draw robot collision spheres when the robot renderer supports it.',
+    )
+    cli_args = parser.parse_args()
+
+    if not cli_args.show:
+        matplotlib.use('Agg')
+
+    from torch_robotics.visualizers.planning_visualizer import PlanningVisualizer
+
+    data_dir = cli_args.data_dir
+    if data_dir is None:
+        data_dir = find_latest_result_dir(
+            cli_args.logs_dir,
+            cli_args.exp_name,
+            env_id=cli_args.env_id,
+            robot_id=cli_args.robot_id,
+        )
+        if data_dir is None:
+            raise FileNotFoundError(
+                f'No result directory found under {cli_args.logs_dir} for exp_name={cli_args.exp_name}. '
+                f'Pass --data-dir explicitly, or check that launch_generate_trajectories.py has finished.'
+            )
+    data_dir = data_dir.resolve()
+
+    args = load_params_from_yaml(data_dir / 'args.yaml')
+    metadata = load_params_from_yaml(data_dir / 'metadata.yaml')
+
+    print('\n-------------- DATA DIR --------------')
+    print(data_dir)
+    print('\n-------------- METADATA --------------')
+    print(yaml.dump(metadata))
+    print('--------------------------------------\n')
+
+    device = get_torch_device(cli_args.device)
+    tensor_args = {'device': device, 'dtype': torch.float32}
+
+    env_class = getattr(environments, args['env_id'])
+    env = env_class(tensor_args=tensor_args)
+
+    robot_class = getattr(robots, args['robot_id'])
+    robot = robot_class(tensor_args=tensor_args)
+
+    task = PlanningTask(
+        env=env,
+        robot=robot,
+        obstacle_cutoff_margin=args['obstacle_cutoff_margin'],
+        tensor_args=tensor_args,
+    )
+
+    trajs, trajs_free, trajs_collision = load_trajectories(data_dir, tensor_args, prefer=cli_args.prefer)
+    trajs = trajs[:cli_args.max_trajs]
+
+    print(f'Loaded trajectories: {tuple(trajs.shape)}')
+    print(f'Free trajectories: {tuple(trajs_free.shape)}')
+    print(f'Collision trajectories: {tuple(trajs_collision.shape)}')
+    print(f'fraction_free: {task.compute_fraction_free_trajs(trajs):.4f}')
+    print(f'collision_intensity: {task.compute_collision_intensity_trajs(trajs):.4f}')
+    print(f'success: {task.compute_success_free_trajs(trajs)}')
+
+    planner_visualizer = PlanningVisualizer(task=task)
+
+    pos_trajs = robot.get_position(trajs)
+    start_state_pos = pos_trajs[0][0]
+    goal_state_pos = pos_trajs[0][-1]
+
+    fig_joint, _ = planner_visualizer.plot_joint_space_state_trajectories(
+        trajs=trajs,
+        pos_start_state=start_state_pos,
+        pos_goal_state=goal_state_pos,
+        vel_start_state=torch.zeros_like(start_state_pos),
+        vel_goal_state=torch.zeros_like(goal_state_pos),
+    )
+    save_or_show(fig_joint, data_dir / 'joint-trajectories.png', show=cli_args.show)
+
+    fig_robot, _ = planner_visualizer.render_robot_trajectories(
+        trajs=trajs,
+        start_state=start_state_pos,
+        goal_state=goal_state_pos,
+        render_planner=False,
+        draw_links_spheres=cli_args.draw_collision_spheres,
+    )
+    save_or_show(fig_robot, data_dir / 'robot-trajectories.png', show=cli_args.show)
+
+    if not cli_args.no_video:
+        planner_visualizer.animate_robot_trajectories(
+            trajs=trajs,
+            start_state=start_state_pos,
+            goal_state=goal_state_pos,
+            plot_trajs=cli_args.plot_full_trajs_in_video,
+            video_filepath=str(data_dir / 'robot-traj.mp4'),
+            n_frames=trajs.shape[1],
+            anim_time=args['duration'],
+            draw_links_spheres=cli_args.draw_collision_spheres,
+        )
+
+
+if __name__ == '__main__':
+    main()
